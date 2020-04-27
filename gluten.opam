@@ -1,0 +1,23 @@
+opam-version: "2.0"
+maintainer: "Antonio Monteiro <anmonteiro@gmail.com>"
+authors: [ "Antonio Monteiro <anmonteiro@gmail.com>" ]
+license: "BSD-3-clause"
+homepage: "https://github.com/anmonteiro/gluten"
+bug-reports: "https://github.com/anmonteiro/gluten/issues"
+dev-repo: "git+https://github.com/anmonteiro/gluten.git"
+doc: "https://anmonteiro.github.io/gluten/"
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+]
+depends: [
+  "ocaml" {>= "4.06"}
+  "dune" {>= "1.0"}
+  "bigstringaf" {>= "0.4.0"}
+  "httpaf" {>= "0.6.5"}
+]
+synopsis:
+  "A reusable runtime library for network protocols"
+description: """
+gluten implements platform specific runtime code for driving network libraries
+based on state machines, such as http/af, h2 and websocketaf.
+"""
