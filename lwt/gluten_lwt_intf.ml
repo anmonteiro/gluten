@@ -77,7 +77,7 @@ module type Client = sig
 
   type socket
 
-  val create_connection
+  val create
     :  read_buffer_size:int
     -> protocol:'t Gluten.runtime
     -> 't

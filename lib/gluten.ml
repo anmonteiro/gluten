@@ -72,35 +72,35 @@ module Reqd = struct
 end
 
 module Upgradable_connection = struct
-  type t = { mutable io_handler : impl }
+  type t = { mutable connection : impl }
 
   let upgrade_protocol t protocol' =
-    let { io_handler = Runtime ((module P), t') } = t in
-    t.io_handler <- protocol';
+    let { connection = Runtime ((module P), t') } = t in
+    t.connection <- protocol';
     P.shutdown t'
 
-  let next_read_operation { io_handler = Runtime ((module P), t) } =
+  let next_read_operation { connection = Runtime ((module P), t) } =
     P.next_read_operation t
 
-  let read { io_handler = Runtime ((module P), t) } = P.read t
+  let read { connection = Runtime ((module P), t) } = P.read t
 
-  let read_eof { io_handler = Runtime ((module P), t) } = P.read_eof t
+  let read_eof { connection = Runtime ((module P), t) } = P.read_eof t
 
-  let yield_reader { io_handler = Runtime ((module P), t) } = P.yield_reader t
+  let yield_reader { connection = Runtime ((module P), t) } = P.yield_reader t
 
-  let next_write_operation { io_handler = Runtime ((module P), t) } =
+  let next_write_operation { connection = Runtime ((module P), t) } =
     P.next_write_operation t
 
-  let report_write_result { io_handler = Runtime ((module P), t) } =
+  let report_write_result { connection = Runtime ((module P), t) } =
     P.report_write_result t
 
-  let yield_writer { io_handler = Runtime ((module P), t) } = P.yield_writer t
+  let yield_writer { connection = Runtime ((module P), t) } = P.yield_writer t
 
-  let report_exn { io_handler = Runtime ((module P), t) } = P.report_exn t
+  let report_exn { connection = Runtime ((module P), t) } = P.report_exn t
 
-  let shutdown { io_handler = Runtime ((module P), t) } = P.shutdown t
+  let shutdown { connection = Runtime ((module P), t) } = P.shutdown t
 
-  let is_closed { io_handler = Runtime ((module P), t) } = P.is_closed t
+  let is_closed { connection = Runtime ((module P), t) } = P.is_closed t
 end
 
 module Server = struct
@@ -117,7 +117,7 @@ module Server = struct
     =
    fun ~protocol ~create request_handler ->
     let rec t =
-      lazy { io_handler = Runtime (protocol, create request_handler') }
+      lazy { connection = Runtime (protocol, create request_handler') }
     and request_handler' reqd =
       let reqd' = Reqd.create reqd (upgrade_protocol (Lazy.force t)) in
       request_handler reqd'
@@ -128,5 +128,5 @@ end
 module Client = struct
   include Upgradable_connection
 
-  let create ~protocol t' = { io_handler = Runtime (protocol, t') }
+  let create ~protocol t' = { connection = Runtime (protocol, t') }
 end

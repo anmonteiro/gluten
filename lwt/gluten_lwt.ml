@@ -196,7 +196,7 @@ module Client (Io : IO) = struct
     ; socket : socket
     }
 
-  let create_connection ~read_buffer_size ~protocol t socket =
+  let create ~read_buffer_size ~protocol t socket =
     let connection = Client_connection.create ~protocol t in
     let read_buffer = Buffer.create read_buffer_size in
     let read_loop_exited, notify_read_loop_exited = Lwt.wait () in
