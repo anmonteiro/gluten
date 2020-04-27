@@ -150,7 +150,6 @@ module Server (Io : IO) = struct
             |> ignore;
             read_loop_step () )
         | `Yield ->
-          Format.eprintf "yield looopy loop@.";
           Server_connection.yield_reader connection read_loop;
           Lwt.return_unit
         | `Close ->
@@ -213,15 +212,7 @@ module Client (Io : IO) = struct
             read_loop_step ()
           | `Ok _ ->
             Buffer.get read_buffer ~f:(fun bigstring ~off ~len ->
-                let ret =
-                  Client_connection.read connection bigstring ~off ~len
-                in
-                Format.eprintf
-                  "GET GARBAGE: %d %d %S@."
-                  len
-                  ret
-                  (Bigstringaf.substring bigstring ~off ~len);
-                ret)
+                Client_connection.read connection bigstring ~off ~len)
             |> ignore;
             read_loop_step () )
         | `Yield ->
