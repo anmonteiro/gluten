@@ -1,0 +1,4 @@
+(library
+ (name gluten_lwt)
+ (public_name gluten-lwt)
+ (libraries lwt gluten))

@@ -1,0 +1,19 @@
+(library
+ (name gluten_lwt_unix)
+ (public_name gluten-lwt-unix)
+ (libraries
+  faraday-lwt-unix
+  httpaf
+  gluten-lwt
+  lwt.unix
+  (select
+   ssl_io.ml
+   from
+   (lwt_ssl -> ssl_io_real.ml)
+   (-> ssl_io_dummy.ml))
+  (select
+   tls_io.ml
+   from
+   (tls.lwt -> tls_io_real.ml)
+   (-> tls_io_dummy.ml)))
+ (modules gluten_lwt_unix tls_io ssl_io))
