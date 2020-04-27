@@ -41,7 +41,7 @@ module type IO = sig
     -> off:int
     -> len:int
     -> [ `Eof | `Ok of int ] Lwt.t
-  (** The region [[off, off + len)] is where read bytes can be written to *)
+  (** The region [(off, off + len)] is where read bytes can be written to *)
 
   val writev
     :  socket
