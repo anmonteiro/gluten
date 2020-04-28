@@ -63,8 +63,7 @@ module type Server = sig
   val create_connection_handler
     :  read_buffer_size:int
     -> protocol:'t Gluten.runtime
-    -> create_protocol:(('reqd -> unit) -> 't)
-    -> request_handler:(addr -> 'reqd Gluten.Server.request_handler)
+    -> 't
     -> addr
     -> socket
     -> unit Lwt.t
@@ -82,9 +81,44 @@ module type Client = sig
     -> socket
     -> t Lwt.t
 
-  val upgrade : t -> Gluten.impl -> unit
-
   val shutdown : t -> unit Lwt.t
 
   val is_closed : t -> bool
+end
+
+module Upgradable = struct
+  module type Server = sig
+    type socket
+
+    type addr
+
+    val create_connection_handler
+      :  read_buffer_size:int
+      -> protocol:'t Gluten.runtime
+      -> create_protocol:(('reqd -> unit) -> 't)
+      -> request_handler:
+           (addr -> 'reqd Gluten.Upgradable.Server.request_handler)
+      -> addr
+      -> socket
+      -> unit Lwt.t
+  end
+
+  module type Client = sig
+    type t
+
+    type socket
+
+    val create
+      :  read_buffer_size:int
+      -> protocol:'t Gluten.runtime
+      -> 't
+      -> socket
+      -> t Lwt.t
+
+    val upgrade : t -> Gluten.impl -> unit
+
+    val shutdown : t -> unit Lwt.t
+
+    val is_closed : t -> bool
+  end
 end

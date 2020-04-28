@@ -30,6 +30,60 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *---------------------------------------------------------------------------*)
 
+module Upgradable : sig
+  module Server : sig
+    include
+      Gluten_lwt.Upgradable.Server
+        with type socket = Lwt_unix.file_descr
+         and type addr = Unix.sockaddr
+
+    module TLS : sig
+      include
+        Gluten_lwt.Upgradable.Server
+          with type socket = Tls_io.descriptor
+           and type addr = Unix.sockaddr
+
+      val create_default
+        :  certfile:string
+        -> keyfile:string
+        -> Unix.sockaddr
+        -> Lwt_unix.file_descr
+        -> socket Lwt.t
+    end
+
+    module SSL : sig
+      include
+        Gluten_lwt.Upgradable.Server
+          with type socket = Ssl_io.descriptor
+           and type addr = Unix.sockaddr
+
+      val create_default
+        :  certfile:string
+        -> keyfile:string
+        -> Unix.sockaddr
+        -> Lwt_unix.file_descr
+        -> socket Lwt.t
+    end
+  end
+
+  (* For an example, see [examples/lwt_get.ml]. *)
+  module Client : sig
+    include Gluten_lwt.Upgradable.Client with type socket = Lwt_unix.file_descr
+
+    module TLS : sig
+      include Gluten_lwt.Upgradable.Client with type socket = Tls_io.descriptor
+
+      val create_default : Lwt_unix.file_descr -> socket Lwt.t
+    end
+
+    module SSL : sig
+      include Gluten_lwt.Upgradable.Client with type socket = Ssl_io.descriptor
+
+      val create_default : Lwt_unix.file_descr -> socket Lwt.t
+    end
+  end
+end
+
 (* The function that results from [create_connection_handler] should be passed
    to [Lwt_io.establish_server_with_client_socket]. For an example, see
    [examples/lwt_echo_server.ml]. *)

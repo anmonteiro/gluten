@@ -62,22 +62,8 @@ type impl = Runtime : 't runtime * 't -> impl
 
 let make runtime t = Runtime (runtime, t)
 
-module Reqd = struct
-  type 'reqd t =
-    { reqd : 'reqd
-    ; upgrade : impl -> unit
-    }
-
-  let create reqd upgrade = { reqd; upgrade }
-end
-
-module Upgradable_connection = struct
+module Connection = struct
   type t = { mutable connection : impl }
-
-  let upgrade_protocol t protocol' =
-    let { connection = Runtime ((module P), t') } = t in
-    t.connection <- protocol';
-    P.shutdown t'
 
   let next_read_operation { connection = Runtime ((module P), t) } =
     P.next_read_operation t
@@ -103,30 +89,67 @@ module Upgradable_connection = struct
   let is_closed { connection = Runtime ((module P), t) } = P.is_closed t
 end
 
-module Server = struct
-  include Upgradable_connection
-
-  type 'reqd request_handler = 'reqd Reqd.t -> unit
-
-  let create
-      : type t' reqd.
-        protocol:t' runtime
-        -> create:((reqd -> unit) -> t')
-        -> reqd request_handler
-        -> t
-    =
-   fun ~protocol ~create request_handler ->
-    let rec t =
-      lazy { connection = Runtime (protocol, create request_handler') }
-    and request_handler' reqd =
-      let reqd' = Reqd.create reqd (upgrade_protocol (Lazy.force t)) in
-      request_handler reqd'
-    in
-    Lazy.force t
-end
-
 module Client = struct
-  include Upgradable_connection
+  include Connection
 
   let create ~protocol t' = { connection = Runtime (protocol, t') }
 end
+
+module Server = struct
+  include Connection
+
+  let create ~protocol t' = { connection = Runtime (protocol, t') }
+end
+
+module Upgradable = struct
+  module Reqd = struct
+    type 'reqd t =
+      { reqd : 'reqd
+      ; upgrade : impl -> unit
+      }
+
+    let create reqd upgrade = { reqd; upgrade }
+  end
+
+  module Connection = struct
+    include Connection
+
+    let upgrade_protocol t protocol' =
+      let { connection = Runtime ((module P), t') } = t in
+      t.connection <- protocol';
+      P.shutdown t'
+  end
+
+  module Server = struct
+    include Connection
+
+    type 'reqd request_handler = 'reqd Reqd.t -> unit
+
+    let create
+        : type t' reqd.
+          protocol:t' runtime
+          -> create:((reqd -> unit) -> t')
+          -> reqd request_handler
+          -> t
+      =
+     fun ~protocol ~create request_handler ->
+      let rec t =
+        lazy { connection = Runtime (protocol, create request_handler') }
+      and request_handler' reqd =
+        let reqd' = Reqd.create reqd (upgrade_protocol (Lazy.force t)) in
+        request_handler reqd'
+      in
+      Lazy.force t
+  end
+
+  module Client = struct
+    include Connection
+
+    let create ~protocol t' = { connection = Runtime (protocol, t') }
+  end
+end
+
+type 'reqd upgradable_reqd = 'reqd Upgradable.Reqd.t = private
+  { reqd : 'reqd
+  ; upgrade : impl -> unit
+  }
