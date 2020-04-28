@@ -84,7 +84,10 @@ end = struct
       ret
 end
 
-include Gluten_lwt_intf
+include (
+  Gluten_lwt_intf :
+    module type of Gluten_lwt_intf
+      with module Upgradable := Gluten_lwt_intf.Upgradable)
 
 module IO_loop = struct
   let start
