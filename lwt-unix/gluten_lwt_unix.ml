@@ -73,15 +73,6 @@ module Io :
   let shutdown_send socket = shutdown socket Unix.SHUTDOWN_SEND
 
   let shutdown_receive socket = shutdown socket Unix.SHUTDOWN_RECEIVE
-
-  let state socket =
-    match Lwt_unix.state socket with
-    | Aborted _ ->
-      `Error
-    | Closed ->
-      `Closed
-    | Opened ->
-      `Open
 end
 
 module Server = struct

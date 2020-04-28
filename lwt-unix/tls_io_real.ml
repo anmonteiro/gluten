@@ -78,9 +78,6 @@ struct
   let shutdown_send _tls = ()
 
   let shutdown_receive _tls = ()
-
-  let state tls =
-    match Tls_lwt.Unix.epoch tls with `Error -> `Error | `Ok _ -> `Open
 end
 
 let null_auth ~host:_ _ = Ok None

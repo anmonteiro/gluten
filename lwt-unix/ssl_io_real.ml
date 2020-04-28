@@ -103,15 +103,6 @@ struct
   let shutdown_send _ssl = ()
 
   let shutdown_receive _ssl = ()
-
-  let state ssl =
-    match Lwt_unix.state (Lwt_ssl.get_fd ssl) with
-    | Aborted _ ->
-      `Error
-    | Closed ->
-      `Closed
-    | Opened ->
-      `Open
 end
 
 let make_default_client socket =
