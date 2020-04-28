@@ -48,8 +48,6 @@ struct
   let shutdown_receive _ = failwith "Ssl not available"
 
   let close _ = failwith "Ssl not available"
-
-  let state _ = failwith "Ssl not available"
 end
 
 let make_default_client _socket = Lwt.fail_with "Ssl not available"
