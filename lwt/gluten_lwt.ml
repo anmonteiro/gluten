@@ -84,6 +84,7 @@ end = struct
       ret
 end
 
+(* OCaml < 4.07 doesn't like multiple definitions of a module name *)
 include (
   Gluten_lwt_intf :
     module type of Gluten_lwt_intf
