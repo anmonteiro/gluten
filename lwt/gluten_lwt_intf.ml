@@ -60,11 +60,19 @@ module type Server = sig
 
   type addr
 
-  val create_connection_handler
+  val create_upgradable_connection_handler
     :  read_buffer_size:int
     -> protocol:'t Gluten.runtime
     -> create_protocol:(('reqd -> unit) -> 't)
     -> request_handler:(addr -> 'reqd Gluten.Server.request_handler)
+    -> addr
+    -> socket
+    -> unit Lwt.t
+
+  val create_connection_handler
+    :  read_buffer_size:int
+    -> protocol:'t Gluten.runtime
+    -> 't
     -> addr
     -> socket
     -> unit Lwt.t

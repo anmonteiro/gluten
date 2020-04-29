@@ -156,13 +156,24 @@ module IO_loop = struct
 end
 
 module Server (Io : IO) = struct
-  module Server_connection = Gluten.Server
+  module Server = Gluten.Server
 
   type socket = Io.socket
 
   type addr = Io.addr
 
   let create_connection_handler
+      ~read_buffer_size ~protocol connection _client_addr socket
+    =
+    let connection = Server.create ~protocol connection in
+    IO_loop.start
+      (module Io)
+      (module Server)
+      connection
+      ~read_buffer_size
+      socket
+
+  let create_upgradable_connection_handler
       ~read_buffer_size
       ~protocol
       ~create_protocol
@@ -171,14 +182,14 @@ module Server (Io : IO) = struct
       socket
     =
     let connection =
-      Server_connection.create
+      Server.create_upgradable
         ~protocol
         ~create:create_protocol
         (request_handler client_addr)
     in
     IO_loop.start
       (module Io)
-      (module Server_connection)
+      (module Server)
       connection
       ~read_buffer_size
       socket

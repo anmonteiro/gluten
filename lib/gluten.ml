@@ -62,17 +62,10 @@ type impl = Runtime : 't runtime * 't -> impl
 
 let make runtime t = Runtime (runtime, t)
 
-module Reqd = struct
-  type 'reqd t =
-    { reqd : 'reqd
-    ; upgrade : impl -> unit
-    }
-
-  let create reqd upgrade = { reqd; upgrade }
-end
-
-module Upgradable_connection = struct
+module Runtime = struct
   type t = { mutable connection : impl }
+
+  let create ~protocol t' = { connection = Runtime (protocol, t') }
 
   let upgrade_protocol t protocol' =
     let { connection = Runtime ((module P), t') } = t in
@@ -103,12 +96,23 @@ module Upgradable_connection = struct
   let is_closed { connection = Runtime ((module P), t) } = P.is_closed t
 end
 
+module Reqd = struct
+  type 'reqd t =
+    { reqd : 'reqd
+    ; upgrade : impl -> unit
+    }
+
+  let create reqd upgrade = { reqd; upgrade }
+end
+
+module Client = Runtime
+
 module Server = struct
-  include Upgradable_connection
+  include Runtime
 
   type 'reqd request_handler = 'reqd Reqd.t -> unit
 
-  let create
+  let create_upgradable
       : type t' reqd.
         protocol:t' runtime
         -> create:((reqd -> unit) -> t')
@@ -125,8 +129,7 @@ module Server = struct
     Lazy.force t
 end
 
-module Client = struct
-  include Upgradable_connection
-
-  let create ~protocol t' = { connection = Runtime (protocol, t') }
-end
+type 'reqd reqd = 'reqd Reqd.t = private
+  { reqd : 'reqd
+  ; upgrade : impl -> unit
+  }

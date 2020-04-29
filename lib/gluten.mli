@@ -72,11 +72,13 @@ end
 module Server : sig
   include RUNTIME
 
+  val create : protocol:'t runtime -> 't -> t
+
   val upgrade_protocol : t -> impl -> unit
 
   type 'reqd request_handler = 'reqd Reqd.t -> unit
 
-  val create
+  val create_upgradable
     :  protocol:'t runtime
     -> create:(('reqd -> unit) -> 't)
     -> 'reqd request_handler
@@ -86,7 +88,13 @@ end
 module Client : sig
   include RUNTIME
 
-  val upgrade_protocol : t -> impl -> unit
-
   val create : protocol:'t runtime -> 't -> t
+
+  val upgrade_protocol : t -> impl -> unit
 end
+
+(* Export upgradable Reqd for convenience *)
+type 'reqd reqd = 'reqd Reqd.t = private
+  { reqd : 'reqd
+  ; upgrade : impl -> unit
+  }
