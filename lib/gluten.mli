@@ -62,49 +62,39 @@ type impl
 
 val make : 't runtime -> 't -> impl
 
-module Client : sig
-  include RUNTIME
-
-  val create : protocol:'t runtime -> 't -> t
+module Reqd : sig
+  type 'reqd t = private
+    { reqd : 'reqd
+    ; upgrade : impl -> unit
+    }
 end
 
 module Server : sig
   include RUNTIME
 
   val create : protocol:'t runtime -> 't -> t
+
+  val upgrade_protocol : t -> impl -> unit
+
+  type 'reqd request_handler = 'reqd Reqd.t -> unit
+
+  val create_upgradable
+    :  protocol:'t runtime
+    -> create:(('reqd -> unit) -> 't)
+    -> 'reqd request_handler
+    -> t
 end
 
-module Upgradable : sig
-  module Reqd : sig
-    type 'reqd t = private
-      { reqd : 'reqd
-      ; upgrade : impl -> unit
-      }
-  end
+module Client : sig
+  include RUNTIME
 
-  module Server : sig
-    include RUNTIME
+  val create : protocol:'t runtime -> 't -> t
 
-    val upgrade_protocol : t -> impl -> unit
-
-    type 'reqd request_handler = 'reqd Reqd.t -> unit
-
-    val create
-      :  protocol:'t runtime
-      -> create:(('reqd -> unit) -> 't)
-      -> 'reqd request_handler
-      -> t
-  end
-
-  module Client : sig
-    include module type of Client
-
-    val upgrade_protocol : t -> impl -> unit
-  end
+  val upgrade_protocol : t -> impl -> unit
 end
 
 (* Export upgradable Reqd for convenience *)
-type 'reqd upgradable_reqd = 'reqd Upgradable.Reqd.t = private
+type 'reqd reqd = 'reqd Reqd.t = private
   { reqd : 'reqd
   ; upgrade : impl -> unit
   }

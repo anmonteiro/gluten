@@ -84,11 +84,7 @@ end = struct
       ret
 end
 
-(* OCaml < 4.07 doesn't like multiple definitions of a module name *)
-include (
-  Gluten_lwt_intf :
-    module type of Gluten_lwt_intf
-      with module Upgradable := Gluten_lwt_intf.Upgradable)
+include Gluten_lwt_intf
 
 module IO_loop = struct
   let start
@@ -159,72 +155,8 @@ module IO_loop = struct
     Io.close socket
 end
 
-module Upgradable = struct
-  include Gluten_lwt_intf.Upgradable
-
-  module Server (Io : IO) = struct
-    module Server_connection = Gluten.Upgradable.Server
-
-    type socket = Io.socket
-
-    type addr = Io.addr
-
-    let create_connection_handler
-        ~read_buffer_size
-        ~protocol
-        ~create_protocol
-        ~request_handler
-        client_addr
-        socket
-      =
-      let connection =
-        Server_connection.create
-          ~protocol
-          ~create:create_protocol
-          (request_handler client_addr)
-      in
-      IO_loop.start
-        (module Io)
-        (module Server_connection)
-        connection
-        ~read_buffer_size
-        socket
-  end
-
-  module Client (Io : IO) = struct
-    module Client_connection = Gluten.Upgradable.Client
-
-    type socket = Io.socket
-
-    type t =
-      { connection : Client_connection.t
-      ; socket : socket
-      }
-
-    let create ~read_buffer_size ~protocol t socket =
-      let connection = Client_connection.create ~protocol t in
-      Lwt.async (fun () ->
-          IO_loop.start
-            (module Io)
-            (module Client_connection)
-            connection
-            ~read_buffer_size
-            socket);
-      Lwt.return { connection; socket }
-
-    let upgrade t protocol =
-      Client_connection.upgrade_protocol t.connection protocol
-
-    let shutdown t =
-      Client_connection.shutdown t.connection;
-      Io.close t.socket
-
-    let is_closed t = Client_connection.is_closed t.connection
-  end
-end
-
 module Server (Io : IO) = struct
-  module Server_connection = Gluten.Server
+  module Server = Gluten.Server
 
   type socket = Io.socket
 
@@ -233,10 +165,31 @@ module Server (Io : IO) = struct
   let create_connection_handler
       ~read_buffer_size ~protocol connection _client_addr socket
     =
-    let connection = Server_connection.create ~protocol connection in
+    let connection = Server.create ~protocol connection in
     IO_loop.start
       (module Io)
-      (module Server_connection)
+      (module Server)
+      connection
+      ~read_buffer_size
+      socket
+
+  let create_upgradable_connection_handler
+      ~read_buffer_size
+      ~protocol
+      ~create_protocol
+      ~request_handler
+      client_addr
+      socket
+    =
+    let connection =
+      Server.create_upgradable
+        ~protocol
+        ~create:create_protocol
+        (request_handler client_addr)
+    in
+    IO_loop.start
+      (module Io)
+      (module Server)
       connection
       ~read_buffer_size
       socket
@@ -262,6 +215,9 @@ module Client (Io : IO) = struct
           ~read_buffer_size
           socket);
     Lwt.return { connection; socket }
+
+  let upgrade t protocol =
+    Client_connection.upgrade_protocol t.connection protocol
 
   let shutdown t =
     Client_connection.shutdown t.connection;

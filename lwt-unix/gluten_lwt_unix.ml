@@ -75,44 +75,6 @@ module Io :
   let shutdown_receive socket = shutdown socket Unix.SHUTDOWN_RECEIVE
 end
 
-module Upgradable = struct
-  module Server = struct
-    include Gluten_lwt.Upgradable.Server (Io)
-
-    module TLS = struct
-      include Gluten_lwt.Upgradable.Server (Tls_io.Io)
-
-      let create_default ~certfile ~keyfile =
-        let make_tls_server = Tls_io.make_server ~certfile ~keyfile in
-        fun _client_addr socket -> make_tls_server socket
-    end
-
-    module SSL = struct
-      include Gluten_lwt.Upgradable.Server (Ssl_io.Io)
-
-      let create_default ~certfile ~keyfile =
-        let make_ssl_server = Ssl_io.make_server ~certfile ~keyfile in
-        fun _client_addr socket -> make_ssl_server socket
-    end
-  end
-
-  module Client = struct
-    include Gluten_lwt.Upgradable.Client (Io)
-
-    module TLS = struct
-      include Gluten_lwt.Upgradable.Client (Tls_io.Io)
-
-      let create_default socket = Tls_io.make_client socket
-    end
-
-    module SSL = struct
-      include Gluten_lwt.Upgradable.Client (Ssl_io.Io)
-
-      let create_default socket = Ssl_io.make_default_client socket
-    end
-  end
-end
-
 module Server = struct
   include Gluten_lwt.Server (Io)
 

@@ -35,17 +35,6 @@
 
 module type IO = Gluten_lwt_intf.IO
 
-module Upgradable : sig
-  module type Server = Gluten_lwt_intf.Upgradable.Server
-
-  module type Client = Gluten_lwt_intf.Upgradable.Client
-
-  module Server (Io : IO) :
-    Server with type socket = Io.socket and type addr = Io.addr
-
-  module Client (Io : IO) : Client with type socket = Io.socket
-end
-
 module type Server = Gluten_lwt_intf.Server
 
 module type Client = Gluten_lwt_intf.Client
