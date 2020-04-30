@@ -36,4 +36,15 @@ in
       lwt_ssl
     ];
   };
+
+  gluten-mirage = buildGluten {
+    pname = "gluten-mirage";
+    propagatedBuildInputs = [
+      faraday-lwt
+      gluten-lwt
+      conduit-mirage
+      mirage-flow
+      cstruct
+    ];
+  };
 }
