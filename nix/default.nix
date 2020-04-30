@@ -17,34 +17,36 @@ in
       src = lib.gitignoreSource ./..;
     } // args);
 
-  in rec {
-    gluten = buildGluten {
-      pname = "gluten";
-      propagatedBuildInputs = [ httpaf ];
+    glutenPackages = rec {
+      gluten = buildGluten {
+        pname = "gluten";
+        propagatedBuildInputs = [ httpaf ];
+      };
+
+      gluten-lwt = buildGluten {
+        pname = "gluten-lwt";
+        propagatedBuildInputs = [ gluten lwt4 ];
+      };
+
+      gluten-lwt-unix = buildGluten {
+        pname = "gluten-lwt-unix";
+        propagatedBuildInputs = [
+          faraday-lwt-unix
+          gluten-lwt
+          lwt_ssl
+        ];
+      };
     };
-
-  gluten-lwt = buildGluten {
-    pname = "gluten-lwt";
-    propagatedBuildInputs = [ gluten lwt4 ];
-  };
-
-  gluten-lwt-unix = buildGluten {
-    pname = "gluten-lwt-unix";
-    propagatedBuildInputs = [
-      faraday-lwt-unix
-      gluten-lwt
-      lwt_ssl
-    ];
-  };
-
-  gluten-mirage = buildGluten {
-    pname = "gluten-mirage";
-    propagatedBuildInputs = [
-      faraday-lwt
-      gluten-lwt
-      conduit-mirage
-      mirage-flow
-      cstruct
-    ];
-  };
-}
+  in
+  glutenPackages // (if (lib.versionOlder "4.08" ocamlVersion) then {
+    gluten-mirage = buildGluten {
+      pname = "gluten-mirage";
+      propagatedBuildInputs = [
+        faraday-lwt
+        gluten-lwt
+        conduit-mirage
+        mirage-flow
+        cstruct
+      ];
+    };
+  } else {})
