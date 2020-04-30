@@ -3,7 +3,6 @@
  (public_name gluten-lwt-unix)
  (libraries
   faraday-lwt-unix
-  httpaf
   gluten-lwt
   lwt.unix
   (select

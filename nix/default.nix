@@ -20,7 +20,7 @@ in
     glutenPackages = rec {
       gluten = buildGluten {
         pname = "gluten";
-        propagatedBuildInputs = [ httpaf ];
+        propagatedBuildInputs = [ bigstringaf faraday ];
       };
 
       gluten-lwt = buildGluten {
@@ -38,10 +38,10 @@ in
       };
     };
   in
-  glutenPackages // (if (lib.versionOlder "4.08" ocamlVersion) then {
+  glutenPackages // (if (lib.versionOlder "4.08" ocaml.version) then {
     gluten-mirage = buildGluten {
       pname = "gluten-mirage";
-      propagatedBuildInputs = [
+      propagatedBuildInputs = with glutenPackages; [
         faraday-lwt
         gluten-lwt
         conduit-mirage
