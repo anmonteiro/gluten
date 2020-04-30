@@ -43,7 +43,7 @@ module type RUNTIME = sig
 
   val next_write_operation
     :  t
-    -> [ `Write of Bigstringaf.t Httpaf.IOVec.t list | `Yield | `Close of int ]
+    -> [ `Write of Bigstringaf.t Faraday.iovec list | `Yield | `Close of int ]
 
   val report_write_result : t -> [ `Ok of int | `Closed ] -> unit
 
