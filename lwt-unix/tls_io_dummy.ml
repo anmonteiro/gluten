@@ -50,8 +50,8 @@ struct
   let close _ = Lwt.fail_with "Tls not available"
 end
 
-let make_client _socket = Lwt.return `Tls_not_available
+let make_client ?alpn_protocols:_ _socket = Lwt.return `Tls_not_available
 
-let[@ocaml.warning "-21"] make_server ?certfile:_ ?keyfile:_ =
+let[@ocaml.warning "-21"] make_server ?alpn_protocols:_ ~certfile:_ ~keyfile:_ =
   failwith "TLS not available";
   fun _socket -> Lwt.fail_with "TLS not available"

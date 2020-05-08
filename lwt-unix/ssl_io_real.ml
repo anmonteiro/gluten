@@ -105,15 +105,24 @@ struct
   let shutdown_receive _ssl = ()
 end
 
-let make_default_client socket =
+let make_default_client ?alpn_protocols socket =
   let client_ctx = Ssl.create_context Ssl.SSLv23 Ssl.Client_context in
   Ssl.disable_protocols client_ctx [ Ssl.SSLv23 ];
   Ssl.honor_cipher_order client_ctx;
-  Ssl.set_context_alpn_protos client_ctx [ "http/1.1" ];
+  (match alpn_protocols with
+  | Some protos ->
+    Ssl.set_context_alpn_protos client_ctx protos
+  | None ->
+    ());
   Lwt_ssl.ssl_connect socket client_ctx
 
-let make_server ~certfile ~keyfile socket =
+let make_server ?alpn_protocols ~certfile ~keyfile socket =
   let server_ctx = Ssl.create_context Ssl.SSLv23 Ssl.Server_context in
   Ssl.disable_protocols server_ctx [ Ssl.SSLv23 ];
   Ssl.use_certificate server_ctx certfile keyfile;
+  (match alpn_protocols with
+  | Some protos ->
+    Ssl.set_context_alpn_protos server_ctx protos
+  | None ->
+    ());
   Lwt_ssl.ssl_accept socket server_ctx

@@ -43,7 +43,8 @@ module Server : sig
          and type addr = Unix.sockaddr
 
     val create_default
-      :  certfile:string
+      :  ?alpn_protocols:string list
+      -> certfile:string
       -> keyfile:string
       -> Unix.sockaddr
       -> Lwt_unix.file_descr
@@ -57,7 +58,8 @@ module Server : sig
          and type addr = Unix.sockaddr
 
     val create_default
-      :  certfile:string
+      :  ?alpn_protocols:string list
+      -> certfile:string
       -> keyfile:string
       -> Unix.sockaddr
       -> Lwt_unix.file_descr
@@ -72,12 +74,18 @@ module Client : sig
   module TLS : sig
     include Gluten_lwt.Client with type socket = Tls_io.descriptor
 
-    val create_default : Lwt_unix.file_descr -> socket Lwt.t
+    val create_default
+      :  ?alpn_protocols:string list
+      -> Lwt_unix.file_descr
+      -> socket Lwt.t
   end
 
   module SSL : sig
     include Gluten_lwt.Client with type socket = Ssl_io.descriptor
 
-    val create_default : Lwt_unix.file_descr -> socket Lwt.t
+    val create_default
+      :  ?alpn_protocols:string list
+      -> Lwt_unix.file_descr
+      -> socket Lwt.t
   end
 end

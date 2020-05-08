@@ -81,16 +81,20 @@ module Server = struct
   module TLS = struct
     include Gluten_lwt.Server (Tls_io.Io)
 
-    let create_default ~certfile ~keyfile =
-      let make_tls_server = Tls_io.make_server ~certfile ~keyfile in
+    let create_default ?alpn_protocols ~certfile ~keyfile =
+      let make_tls_server =
+        Tls_io.make_server ?alpn_protocols ~certfile ~keyfile
+      in
       fun _client_addr socket -> make_tls_server socket
   end
 
   module SSL = struct
     include Gluten_lwt.Server (Ssl_io.Io)
 
-    let create_default ~certfile ~keyfile =
-      let make_ssl_server = Ssl_io.make_server ~certfile ~keyfile in
+    let create_default ?alpn_protocols ~certfile ~keyfile =
+      let make_ssl_server =
+        Ssl_io.make_server ?alpn_protocols ~certfile ~keyfile
+      in
       fun _client_addr socket -> make_ssl_server socket
   end
 end
@@ -101,12 +105,14 @@ module Client = struct
   module TLS = struct
     include Gluten_lwt.Client (Tls_io.Io)
 
-    let create_default socket = Tls_io.make_client socket
+    let create_default ?alpn_protocols socket =
+      Tls_io.make_client ?alpn_protocols socket
   end
 
   module SSL = struct
     include Gluten_lwt.Client (Ssl_io.Io)
 
-    let create_default socket = Ssl_io.make_default_client socket
+    let create_default ?alpn_protocols socket =
+      Ssl_io.make_default_client ?alpn_protocols socket
   end
 end
