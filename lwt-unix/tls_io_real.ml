@@ -82,17 +82,14 @@ end
 
 let null_auth ~host:_ _ = Ok None
 
-let make_client socket =
-  let config = Tls.Config.client ~authenticator:null_auth () in
+let make_client ?alpn_protocols socket =
+  let config = Tls.Config.client ?alpn_protocols ~authenticator:null_auth () in
   Tls_lwt.Unix.client_of_fd config socket
 
-let make_server ~certfile ~keyfile socket =
+let make_server ?alpn_protocols ~certfile ~keyfile socket =
   X509_lwt.private_of_pems ~cert:certfile ~priv_key:keyfile
   >>= fun certificate ->
   let config =
-    Tls.Config.server
-      ~alpn_protocols:[ "http/1.1" ]
-      ~certificates:(`Single certificate)
-      ()
+    Tls.Config.server ?alpn_protocols ~certificates:(`Single certificate) ()
   in
   Tls_lwt.Unix.server_of_fd config socket
