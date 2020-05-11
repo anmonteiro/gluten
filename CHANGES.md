@@ -7,6 +7,8 @@ Unreleased
   ([#6](https://github.com/anmonteiro/gluten/pull/6))
 - gluten-lwt-unix: Allow configuring accepted ALPN protocols in the SSL / TLS
   runtimes ([#7](https://github.com/anmonteiro/gluten/pull/7))
+- gluten-async: Add an Async runtime
+  ([#8](https://github.com/anmonteiro/gluten/pull/8))
 
 0.2.0 2020-04-29
 --------------
