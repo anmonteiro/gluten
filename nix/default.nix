@@ -39,6 +39,15 @@ in
     };
   in
   glutenPackages // (if (lib.versionOlder "4.08" ocaml.version) then {
+    gluten-async = buildGluten {
+      pname = "gluten-async";
+      propagatedBuildInputs = with glutenPackages; [
+        faraday-async
+        gluten
+        async_ssl
+      ];
+    };
+
     gluten-mirage = buildGluten {
       pname = "gluten-mirage";
       propagatedBuildInputs = with glutenPackages; [
