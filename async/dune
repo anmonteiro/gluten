@@ -1,0 +1,14 @@
+(library
+ (name gluten_async)
+ (public_name gluten-async)
+ (libraries
+  async
+  core
+  faraday-async
+  gluten
+  (select
+   ssl_io.ml
+   from
+   (async_ssl -> ssl_io_real.ml)
+   (!async_ssl -> ssl_io_dummy.ml)))
+ (modules gluten_async gluten_async_intf ssl_io))
