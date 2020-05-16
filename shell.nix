@@ -1,3 +1,5 @@
+{ release-mode ? false }:
+
 let
   pkgs = import ./nix/sources.nix {};
   inherit (pkgs) stdenv lib;
@@ -9,7 +11,9 @@ in
 
   (mkShell {
     inputsFrom = lib.attrValues glutenDrvs;
-    buildInputs = with ocamlPackages; [ merlin utop ocamlformat ];
+    buildInputs =
+      (if release-mode then [  ocamlPackages.dune-release git opam ] else [])
+      ++ (with ocamlPackages; [ merlin utop ocamlformat ]);
   }).overrideAttrs (o : {
     propagatedBuildInputs = lib.filter
     (drv:
