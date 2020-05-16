@@ -12,7 +12,13 @@ in
   (mkShell {
     inputsFrom = lib.attrValues glutenDrvs;
     buildInputs =
-      (if release-mode then [  ocamlPackages.dune-release git opam ] else [])
+      (if release-mode then [
+        cacert
+        curl
+        ocamlPackages.dune-release
+        git
+        opam
+      ] else [])
       ++ (with ocamlPackages; [ merlin utop ocamlformat ]);
   }).overrideAttrs (o : {
     propagatedBuildInputs = lib.filter
