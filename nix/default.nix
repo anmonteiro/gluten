@@ -37,7 +37,7 @@ in
           dirs = [ "lwt" ];
           files = [ "gluten-lwt.opam" ];
         };
-        propagatedBuildInputs = [ gluten lwt ];
+        propagatedBuildInputs = [ gluten lwt ke ];
       };
 
       gluten-lwt-unix = buildGluten {

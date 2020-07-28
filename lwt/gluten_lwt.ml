@@ -34,6 +34,7 @@
  *---------------------------------------------------------------------------*)
 
 open Lwt.Infix
+module Qe = Ke.Rke.Weighted
 
 module Buffer : sig
   type t
@@ -47,40 +48,38 @@ module Buffer : sig
     -> f:(Bigstringaf.t -> off:int -> len:int -> [ `Eof | `Ok of int ] Lwt.t)
     -> [ `Eof | `Ok of int ] Lwt.t
 end = struct
-  type t =
-    { buffer : Bigstringaf.t
-    ; mutable off : int
-    ; mutable len : int
-    }
+  type t = (char, Bigarray.int8_unsigned_elt) Qe.t
 
-  let create size =
-    let buffer = Bigstringaf.create size in
-    { buffer; off = 0; len = 0 }
-
-  let compress t =
-    if t.len = 0 then (
-      t.off <- 0;
-      t.len <- 0)
-    else if t.off > 0 then (
-      Bigstringaf.blit t.buffer ~src_off:t.off t.buffer ~dst_off:0 ~len:t.len;
-      t.off <- 0)
+  let create capacity =
+    let queue, _ = Qe.create ~capacity Bigarray.char in
+    queue
 
   let get t ~f =
-    let n = f t.buffer ~off:t.off ~len:t.len in
-    t.off <- t.off + n;
-    t.len <- t.len - n;
-    if t.len = 0 then
-      t.off <- 0;
-    n
+    match Qe.N.peek t with
+    | [] ->
+      f Bigstringaf.empty ~off:0 ~len:0
+    | [ slice ] ->
+      let n = f slice ~off:0 ~len:(Bigstringaf.length slice) in
+      Qe.N.shift_exn t n;
+      n
+    | _ :: _ ->
+      (* Should never happen because we compress on every `put`, and therefore
+       * the Queue never wraps around to the beginning. *)
+      assert false
+
+  let blit _src _off _dst _dst_off _len = ()
 
   let put t ~f =
-    compress t;
-    f t.buffer ~off:(t.off + t.len) ~len:(Bigstringaf.length t.buffer - t.len)
-    >|= function
+    Qe.compress t;
+    let buffer = Qe.unsafe_bigarray t in
+    f buffer ~off:(Qe.length t) ~len:(Qe.available t) >|= function
     | `Eof ->
       `Eof
     | `Ok n as ret ->
-      t.len <- t.len + n;
+      (* Increment the offset *)
+      let (_ : ('a, 'b) Qe.N.bigarray list) =
+        Qe.N.push_exn t ~blit ~length:(fun _ -> n) buffer
+      in
       ret
 end
 
