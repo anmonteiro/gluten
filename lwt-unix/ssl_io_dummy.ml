@@ -43,8 +43,6 @@ struct
 
   let writev _ _iovecs = Lwt.fail_with "Ssl not available"
 
-  let shutdown_send _ = failwith "Ssl not available"
-
   let shutdown_receive _ = failwith "Ssl not available"
 
   let close _ = failwith "Ssl not available"

@@ -100,8 +100,6 @@ struct
    * Note: In the SSL / TLS runtimes we can't just shutdown one part of the
    * full-duplex connection, as both sides must know that the underlying TLS
    * conection is closing. *)
-  let shutdown_send _ssl = ()
-
   let shutdown_receive _ssl = ()
 end
 

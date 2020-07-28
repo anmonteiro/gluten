@@ -44,7 +44,11 @@ module Io :
     | Closed ->
       Lwt.return_unit
     | _ ->
-      Lwt.catch (fun () -> Lwt_unix.close socket) (fun _exn -> Lwt.return_unit)
+      Lwt.catch
+        (fun () ->
+          Lwt_unix.shutdown socket SHUTDOWN_ALL;
+          Lwt_unix.close socket)
+        (fun _exn -> Lwt.return_unit)
 
   let read socket bigstring ~off ~len =
     Lwt.catch
@@ -69,8 +73,6 @@ module Io :
       try Lwt_unix.shutdown socket command with
       | Unix.Unix_error (Unix.ENOTCONN, _, _) ->
         ()
-
-  let shutdown_send socket = shutdown socket Unix.SHUTDOWN_SEND
 
   let shutdown_receive socket = shutdown socket Unix.SHUTDOWN_RECEIVE
 end

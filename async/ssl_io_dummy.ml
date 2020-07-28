@@ -46,8 +46,6 @@ module Io :
 
   let writev _ _iovecs = failwith "Ssl not available"
 
-  let shutdown_send _ = failwith "Ssl not available"
-
   let shutdown_receive _ = failwith "Ssl not available"
 
   let close _ = failwith "Ssl not available"

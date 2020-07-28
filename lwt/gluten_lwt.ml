@@ -141,7 +141,6 @@ module IO_loop = struct
           Lwt.return_unit
         | `Close _ ->
           Lwt.wakeup_later notify_write_loop_exited ();
-          Io.shutdown_send socket;
           Lwt.return_unit
       in
       Lwt.async (fun () ->
