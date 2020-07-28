@@ -242,8 +242,9 @@ module Unix_io :
 
   let close socket =
     let fd = Socket.fd socket in
-    if not (Fd.is_closed fd) then
-      Fd.close fd
+    if not (Fd.is_closed fd) then (
+      Socket.shutdown socket `Both;
+      Fd.close fd)
     else
       Deferred.unit
 end
