@@ -14,5 +14,6 @@ depends: [
   "gluten" {= version}
   "dune" {>= "1.0"}
   "lwt"
+  "ke"
 ]
 synopsis: "Lwt-specific runtime for gluten"
