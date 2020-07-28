@@ -25,7 +25,7 @@ in
 
       gluten-lwt = buildGluten {
         pname = "gluten-lwt";
-        propagatedBuildInputs = [ gluten lwt4 ];
+        propagatedBuildInputs = [ gluten lwt ];
       };
 
       gluten-lwt-unix = buildGluten {
