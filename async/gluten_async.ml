@@ -105,7 +105,6 @@ module IO_loop = struct
     let rec reader_thread () =
       match Runtime.next_read_operation t with
       | `Read ->
-        (* Log.Global.printf "read(%d)%!" (Fd.to_int_exn fd); *)
         Buffer.put ~f:(Io.read socket) read_buffer >>> ( function
         | `Eof ->
           Buffer.get read_buffer ~f:(fun bigstring ~off ~len ->
@@ -118,10 +117,8 @@ module IO_loop = struct
           |> ignore;
           reader_thread () )
       | `Yield ->
-        (* Log.Global.printf "read_yield(%d)%!" (Fd.to_int_exn fd); *)
         Runtime.yield_reader t reader_thread
       | `Close ->
-        (* Log.Global.printf "read_close(%d)%!" (Fd.to_int_exn fd); *)
         Ivar.fill read_complete ();
         Io.shutdown_receive socket
     in
@@ -130,17 +127,13 @@ module IO_loop = struct
     let rec writer_thread () =
       match Runtime.next_write_operation t with
       | `Write iovecs ->
-        (* Log.Global.printf "write(%d)%!" (Fd.to_int_exn fd); *)
         writev iovecs >>> fun result ->
         Runtime.report_write_result t result;
         writer_thread ()
       | `Yield ->
-        (* Log.Global.printf "write_yield(%d)%!" (Fd.to_int_exn fd); *)
         Runtime.yield_writer t writer_thread
       | `Close _ ->
-        (* Log.Global.printf "write_close(%d)%!" (Fd.to_int_exn fd); *)
-        Ivar.fill write_complete ();
-        Io.shutdown_send socket
+        Ivar.fill write_complete ()
     in
     let conn_monitor = Monitor.create () in
     Scheduler.within ~monitor:conn_monitor reader_thread;
@@ -241,11 +234,6 @@ module Unix_io :
     go fd bigstring
 
   let writev socket = Faraday_async.writev_of_fd (Socket.fd socket)
-
-  let shutdown_send socket =
-    let fd = Socket.fd socket in
-    if not (Fd.is_closed fd) then
-      Socket.shutdown socket `Send
 
   let shutdown_receive socket =
     let fd = Socket.fd socket in

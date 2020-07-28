@@ -48,8 +48,6 @@ module type IO = sig
     -> Faraday.bigstring Faraday.iovec list
     -> [ `Closed | `Ok of int ] Lwt.t
 
-  val shutdown_send : socket -> unit
-
   val shutdown_receive : socket -> unit
 
   val close : socket -> unit Lwt.t

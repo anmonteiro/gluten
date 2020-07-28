@@ -43,8 +43,6 @@ struct
 
   let writev _ _iovecs = Lwt.fail_with "Tls not available"
 
-  let shutdown_send _ = failwith "Tls not available"
-
   let shutdown_receive _ = failwith "Tls not available"
 
   let close _ = Lwt.fail_with "Tls not available"

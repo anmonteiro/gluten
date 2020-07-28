@@ -42,8 +42,6 @@ module Make_IO (Flow : Mirage_flow.S) :
 
   let shutdown_receive flow = Lwt.async (fun () -> shutdown flow)
 
-  let shutdown_send flow = Lwt.async (fun () -> shutdown flow)
-
   let close = shutdown
 
   let read flow bigstring ~off ~len:_ =

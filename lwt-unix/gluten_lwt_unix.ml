@@ -74,8 +74,6 @@ module Io :
       | Unix.Unix_error (Unix.ENOTCONN, _, _) ->
         ()
 
-  let shutdown_send socket = shutdown socket Unix.SHUTDOWN_SEND
-
   let shutdown_receive socket = shutdown socket Unix.SHUTDOWN_RECEIVE
 end
 

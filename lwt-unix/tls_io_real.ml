@@ -75,8 +75,6 @@ struct
         | exn ->
           Lwt.fail exn)
 
-  let shutdown_send _tls = ()
-
   let shutdown_receive _tls = ()
 end
 
