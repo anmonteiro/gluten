@@ -34,60 +34,7 @@
 
 open Core
 open Async
-
-module Buffer : sig
-  type t
-
-  val create : int -> t
-
-  val get : t -> f:(Bigstring.t -> off:int -> len:int -> int) -> int
-
-  val put
-    :  t
-    -> f:(Bigstring.t -> off:int -> len:int -> [ `Eof | `Ok of int ] Deferred.t)
-    -> [ `Eof | `Ok of int ] Deferred.t
-end = struct
-  type t =
-    { buffer : Bigstring.t
-    ; mutable off : int
-    ; mutable len : int
-    }
-
-  let create size =
-    let buffer = Bigstring.create size in
-    { buffer; off = 0; len = 0 }
-
-  let compress t =
-    if t.len = 0 then (
-      t.off <- 0;
-      t.len <- 0)
-    else if t.off > 0 then (
-      Bigstring.blit
-        ~src:t.buffer
-        ~src_pos:t.off
-        ~dst:t.buffer
-        ~dst_pos:0
-        ~len:t.len;
-      t.off <- 0)
-
-  let get t ~f =
-    let n = f t.buffer ~off:t.off ~len:t.len in
-    t.off <- t.off + n;
-    t.len <- t.len - n;
-    if t.len = 0 then
-      t.off <- 0;
-    n
-
-  let put t ~f =
-    compress t;
-    f t.buffer ~off:(t.off + t.len) ~len:(Bigstring.length t.buffer - t.len)
-    >>| function
-    | `Eof ->
-      `Eof
-    | `Ok n as ret ->
-      t.len <- t.len + n;
-      ret
-end
+module Buffer = Gluten.Buffer
 
 module IO_loop = struct
   let start
@@ -105,17 +52,21 @@ module IO_loop = struct
     let rec reader_thread () =
       match Runtime.next_read_operation t with
       | `Read ->
-        Buffer.put ~f:(Io.read socket) read_buffer >>> ( function
-        | `Eof ->
-          Buffer.get read_buffer ~f:(fun bigstring ~off ~len ->
-              Runtime.read_eof t bigstring ~off ~len)
-          |> ignore;
-          reader_thread ()
-        | `Ok _ ->
-          Buffer.get read_buffer ~f:(fun bigstring ~off ~len ->
-              Runtime.read t bigstring ~off ~len)
-          |> ignore;
-          reader_thread () )
+        Buffer.put
+          ~f:(fun buf ~off ~len k ->
+            Async.upon (Io.read socket buf ~off ~len) k)
+          read_buffer
+          (function
+            | `Eof ->
+              Buffer.get read_buffer ~f:(fun bigstring ~off ~len ->
+                  Runtime.read_eof t bigstring ~off ~len)
+              |> ignore;
+              reader_thread ()
+            | `Ok _ ->
+              Buffer.get read_buffer ~f:(fun bigstring ~off ~len ->
+                  Runtime.read t bigstring ~off ~len)
+              |> ignore;
+              reader_thread ())
       | `Yield ->
         Runtime.yield_reader t reader_thread
       | `Close ->

@@ -34,55 +34,7 @@
  *---------------------------------------------------------------------------*)
 
 open Lwt.Infix
-module Qe = Ke.Rke.Weighted
-
-module Buffer : sig
-  type t
-
-  val create : int -> t
-
-  val get : t -> f:(Bigstringaf.t -> off:int -> len:int -> int) -> int
-
-  val put
-    :  t
-    -> f:(Bigstringaf.t -> off:int -> len:int -> [ `Eof | `Ok of int ] Lwt.t)
-    -> [ `Eof | `Ok of int ] Lwt.t
-end = struct
-  type t = (char, Bigarray.int8_unsigned_elt) Qe.t
-
-  let create capacity =
-    let queue, _ = Qe.create ~capacity Bigarray.char in
-    queue
-
-  let get t ~f =
-    match Qe.N.peek t with
-    | [] ->
-      f Bigstringaf.empty ~off:0 ~len:0
-    | [ slice ] ->
-      let n = f slice ~off:0 ~len:(Bigstringaf.length slice) in
-      Qe.N.shift_exn t n;
-      n
-    | _ :: _ ->
-      (* Should never happen because we compress on every `put`, and therefore
-       * the Queue never wraps around to the beginning. *)
-      assert false
-
-  let blit _src _off _dst _dst_off _len = ()
-
-  let put t ~f =
-    Qe.compress t;
-    let buffer = Qe.unsafe_bigarray t in
-    f buffer ~off:(Qe.length t) ~len:(Qe.available t) >|= function
-    | `Eof ->
-      `Eof
-    | `Ok n as ret ->
-      (* Increment the offset *)
-      let (_ : ('a, 'b) Qe.N.bigarray list) =
-        Qe.N.push_exn t ~blit ~length:(fun _ -> n) buffer
-      in
-      ret
-end
-
+module Buffer = Gluten.Buffer
 include Gluten_lwt_intf
 
 module IO_loop = struct
@@ -102,27 +54,29 @@ module IO_loop = struct
       let rec read_loop_step () =
         match Runtime.next_read_operation t with
         | `Read ->
-          Buffer.put ~f:(Io.read socket) read_buffer >>= ( function
-          | `Eof ->
-            Buffer.get read_buffer ~f:(fun bigstring ~off ~len ->
-                Runtime.read_eof t bigstring ~off ~len)
-            |> ignore;
-            read_loop_step ()
-          | `Ok _ ->
-            Buffer.get read_buffer ~f:(fun bigstring ~off ~len ->
-                Runtime.read t bigstring ~off ~len)
-            |> ignore;
-            read_loop_step () )
+          Buffer.put
+            ~f:(fun buf ~off ~len k ->
+              Lwt.on_success (Io.read socket buf ~off ~len) k)
+            read_buffer
+            (function
+              | `Eof ->
+                Buffer.get read_buffer ~f:(fun bigstring ~off ~len ->
+                    Runtime.read_eof t bigstring ~off ~len)
+                |> ignore;
+                read_loop_step ()
+              | `Ok _ ->
+                Buffer.get read_buffer ~f:(fun bigstring ~off ~len ->
+                    Runtime.read t bigstring ~off ~len)
+                |> ignore;
+                read_loop_step ())
         | `Yield ->
-          Runtime.yield_reader t read_loop;
-          Lwt.return_unit
+          Runtime.yield_reader t read_loop
         | `Close ->
           Lwt.wakeup_later notify_read_loop_exited ();
-          Io.shutdown_receive socket;
-          Lwt.return_unit
+          Io.shutdown_receive socket
       in
       Lwt.async (fun () ->
-          Lwt.catch read_loop_step (fun exn ->
+          Lwt.catch (Lwt.wrap1 read_loop_step) (fun exn ->
               Runtime.report_exn t exn;
               Lwt.return_unit))
     in
