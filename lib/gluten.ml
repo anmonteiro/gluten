@@ -148,6 +148,7 @@ module Buffer = struct
     | [] ->
       f Bigstringaf.empty ~off:0 ~len:0
     | [ slice ] ->
+      assert (Bigstringaf.length slice = Qe.length t);
       let n = f slice ~off:0 ~len:(Bigstringaf.length slice) in
       Qe.N.shift_exn t n;
       n
@@ -165,7 +166,7 @@ module Buffer = struct
         | `Eof ->
           k `Eof
         | `Ok n as ret ->
-          (* Increment the offset *)
+          (* Increment the offset, without making a copy *)
           let (_ : ('a, 'b) Qe.N.bigarray list) =
             Qe.N.push_exn t ~blit ~length:(fun _ -> n) buffer
           in
