@@ -28,7 +28,7 @@ in
           dirs = [ "lib" ];
           files = [ "gluten.opam" ];
         };
-        propagatedBuildInputs = [ bigstringaf faraday ];
+        propagatedBuildInputs = [ bigstringaf faraday ke ];
       };
 
       gluten-lwt = buildGluten {
@@ -37,7 +37,7 @@ in
           dirs = [ "lwt" ];
           files = [ "gluten-lwt.opam" ];
         };
-        propagatedBuildInputs = [ gluten lwt ke ];
+        propagatedBuildInputs = [ gluten lwt ];
       };
 
       gluten-lwt-unix = buildGluten {
