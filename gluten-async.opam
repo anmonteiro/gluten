@@ -13,7 +13,7 @@ depends: [
   "ocaml" {>= "4.03.0"}
   "dune" {>= "1.0"}
   "gluten" {= version}
-  "faraday-async"
+  "faraday-async" {>= "0.7.2"}
   "async" { >= "v0.14.0" }
 ]
 depopts: ["async_ssl"]
