@@ -83,9 +83,9 @@ module Server = struct
   module TLS = struct
     include Gluten_lwt.Server (Tls_io.Io)
 
-    let create_default ?alpn_protocols ~certfile ~keyfile =
+    let create_default ?ciphers ?alpn_protocols ~certfile ~keyfile =
       let make_tls_server =
-        Tls_io.make_server ?alpn_protocols ~certfile ~keyfile
+        Tls_io.make_server ?ciphers ?alpn_protocols ~certfile ~keyfile
       in
       fun _client_addr socket -> make_tls_server socket
   end
@@ -107,8 +107,8 @@ module Client = struct
   module TLS = struct
     include Gluten_lwt.Client (Tls_io.Io)
 
-    let create_default ?alpn_protocols socket =
-      Tls_io.make_client ?alpn_protocols socket
+    let create_default ?ciphers ?alpn_protocols socket =
+      Tls_io.make_client ?ciphers ?alpn_protocols socket
   end
 
   module SSL = struct

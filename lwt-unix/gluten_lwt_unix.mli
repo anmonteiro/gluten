@@ -43,7 +43,8 @@ module Server : sig
          and type addr = Unix.sockaddr
 
     val create_default
-      :  ?alpn_protocols:string list
+      :  ?ciphers:Tls.Ciphersuite.ciphersuite list
+      -> ?alpn_protocols:string list
       -> certfile:string
       -> keyfile:string
       -> Unix.sockaddr
@@ -75,7 +76,8 @@ module Client : sig
     include Gluten_lwt.Client with type socket = Tls_io.descriptor
 
     val create_default
-      :  ?alpn_protocols:string list
+      :  ?ciphers:Tls.Ciphersuite.ciphersuite list
+      -> ?alpn_protocols:string list
       -> Lwt_unix.file_descr
       -> socket Lwt.t
   end
