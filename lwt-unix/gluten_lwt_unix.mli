@@ -71,6 +71,25 @@ end
 module Client : sig
   include Gluten_lwt.Client with type socket = Lwt_unix.file_descr
 
+  module Pool : sig
+    module type Lifecycle = sig
+      type client_t := t
+
+      type t
+
+      val get_runtime : t -> client_t
+
+      val start : socket -> (t, string) Lwt_result.t
+
+      val stop : t -> unit Lwt.t
+    end
+
+    val create
+      :  Unix.sockaddr
+      -> (module Lifecycle with type t = 't)
+      -> 't Lwt_pool.t
+  end
+
   module TLS : sig
     include Gluten_lwt.Client with type socket = Tls_io.descriptor
 

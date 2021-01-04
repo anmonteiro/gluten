@@ -102,7 +102,38 @@ module Server = struct
 end
 
 module Client = struct
-  include Gluten_lwt.Client (Io)
+  module Client = Gluten_lwt.Client (Io)
+  include Client
+
+  module Pool = struct
+    module Pool = Gluten_lwt.Pool (Io)
+    include Pool
+
+    module type Lifecycle = sig
+      type t
+
+      val get_runtime : t -> Client.t
+
+      val start : Client.socket -> (t, string) Lwt_result.t
+
+      val stop : t -> unit Lwt.t
+    end
+
+    let create
+        : type t.
+          Unix.sockaddr -> (module Lifecycle with type t = t) -> t Lwt_pool.t
+      =
+     fun sockaddr (module L) ->
+      let create_fd () =
+        let fd = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
+        Lwt_unix.connect fd sockaddr >|= fun () -> fd
+      in
+      let check t =
+        let gluten = L.get_runtime t in
+        Lwt.return (not (Client.is_closed gluten))
+      in
+      Pool.create ~create_fd { start = L.start; check; stop = L.stop }
+  end
 
   module TLS = struct
     include Gluten_lwt.Client (Tls_io.Io)

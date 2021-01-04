@@ -94,3 +94,15 @@ module type Client = sig
 
   val is_closed : t -> bool
 end
+
+module type Pool = sig
+  type socket
+
+  type 't lifecycle =
+    { start : socket -> ('t, string) Lwt_result.t
+    ; check : 't -> bool Lwt.t
+    ; stop : 't -> unit Lwt.t
+    }
+
+  val create : create_fd:(unit -> socket Lwt.t) -> 't lifecycle -> 't Lwt_pool.t
+end

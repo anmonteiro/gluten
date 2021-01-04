@@ -224,3 +224,27 @@ module Client (Io : IO) = struct
 
   let is_closed t = Client_connection.is_closed t.connection
 end
+
+module Pool (Io : IO) = struct
+  type socket = Io.socket
+
+  type 't lifecycle =
+    { start : socket -> ('t, string) Lwt_result.t
+    ; check : 't -> bool Lwt.t
+    ; stop : 't -> unit Lwt.t
+    }
+
+  let create ~create_fd { start; check; stop } =
+    Lwt_pool.create
+      16
+      ~validate:check
+      ~check:(fun t f -> Lwt.async (fun () -> check t >>= Lwt.wrap1 f))
+      ~dispose:(fun t -> stop t)
+      (fun () ->
+        create_fd () >>= fun fd ->
+        start fd >>= function
+        | Ok t ->
+          Lwt.return t
+        | Error reason ->
+          Lwt.fail (Failure (Format.asprintf "%s" reason)))
+end
