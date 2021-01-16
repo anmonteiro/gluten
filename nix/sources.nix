@@ -3,7 +3,7 @@
 let
   overlays =
     builtins.fetchTarball
-      https://github.com/anmonteiro/nix-overlays/archive/77b3707.tar.gz;
+      https://github.com/anmonteiro/nix-overlays/archive/1718c8f.tar.gz;
 
 in
 

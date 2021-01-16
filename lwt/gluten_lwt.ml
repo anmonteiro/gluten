@@ -86,6 +86,9 @@ end
 
 include Gluten_lwt_intf
 
+let change t =
+  Lwt_timeout.change t 3
+
 module IO_loop = struct
   let start
       : type t fd.
@@ -99,11 +102,23 @@ module IO_loop = struct
    fun (module Io) (module Runtime) t ~read_buffer_size socket ->
     let read_buffer = Buffer.create read_buffer_size in
     let read_loop_exited, notify_read_loop_exited = Lwt.wait () in
+    let write_loop_exited, notify_write_loop_exited = Lwt.wait () in
+    let timeout =
+      Lwt_timeout.create 3 (fun () ->
+          (try Lwt.wakeup_later notify_read_loop_exited () with
+          | Invalid_argument _ ->
+            ());
+          try Lwt.wakeup_later notify_write_loop_exited () with
+          | Invalid_argument _ ->
+            ())
+    in
     let rec read_loop () =
       let rec read_loop_step () =
         match Runtime.next_read_operation t with
         | `Read ->
-          Buffer.put ~f:(Io.read socket) read_buffer >>= ( function
+          Buffer.put ~f:(Io.read socket) read_buffer >>= fun ret ->
+          change timeout;
+          (match ret with
           | `Eof ->
             Buffer.get read_buffer ~f:(fun bigstring ~off ~len ->
                 Runtime.read_eof t bigstring ~off ~len)
@@ -113,9 +128,10 @@ module IO_loop = struct
             Buffer.get read_buffer ~f:(fun bigstring ~off ~len ->
                 Runtime.read t bigstring ~off ~len)
             |> ignore;
-            read_loop_step () )
+            read_loop_step ())
         | `Yield ->
           Runtime.yield_reader t read_loop;
+          change timeout;
           Lwt.return_unit
         | `Close ->
           Lwt.wakeup_later notify_read_loop_exited ();
@@ -128,16 +144,17 @@ module IO_loop = struct
               Lwt.return_unit))
     in
     let writev = Io.writev socket in
-    let write_loop_exited, notify_write_loop_exited = Lwt.wait () in
     let rec write_loop () =
       let rec write_loop_step () =
         match Runtime.next_write_operation t with
         | `Write io_vectors ->
+          change timeout;
           writev io_vectors >>= fun result ->
           Runtime.report_write_result t result;
           write_loop_step ()
         | `Yield ->
           Runtime.yield_writer t write_loop;
+          change timeout;
           Lwt.return_unit
         | `Close _ ->
           Lwt.wakeup_later notify_write_loop_exited ();
@@ -150,6 +167,7 @@ module IO_loop = struct
     in
     read_loop ();
     write_loop ();
+    Lwt_timeout.start timeout;
     Lwt.join [ read_loop_exited; write_loop_exited ] >>= fun () ->
     Io.close socket
 end
