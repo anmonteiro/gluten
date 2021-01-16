@@ -39,7 +39,11 @@ module type Server = Gluten_lwt_intf.Server
 
 module type Client = Gluten_lwt_intf.Client
 
+module type Pool = Gluten_lwt_intf.Pool
+
 module Server (Io : IO) :
   Server with type socket = Io.socket and type addr = Io.addr
 
 module Client (Io : IO) : Client with type socket = Io.socket
+
+module Pool (Io : IO) : Pool with type socket = Io.socket
