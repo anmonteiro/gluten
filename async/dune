@@ -9,6 +9,6 @@
   (select
    ssl_io.ml
    from
-   (async_ssl -> ssl_io_real.ml)
-   (!async_ssl -> ssl_io_dummy.ml)))
+   (async_ssl -> ssl_io.real.ml)
+   (!async_ssl -> ssl_io.dummy.ml)))
  (modules gluten_async gluten_async_intf ssl_io))

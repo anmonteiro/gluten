@@ -8,11 +8,11 @@
   (select
    ssl_io.ml
    from
-   (lwt_ssl -> ssl_io_real.ml)
-   (-> ssl_io_dummy.ml))
+   (lwt_ssl -> ssl_io.real.ml)
+   (-> ssl_io.dummy.ml))
   (select
    tls_io.ml
    from
-   (tls.lwt -> tls_io_real.ml)
-   (-> tls_io_dummy.ml)))
+   (tls.lwt -> tls_io.real.ml)
+   (-> tls_io.dummy.ml)))
  (modules gluten_lwt_unix tls_io ssl_io))
