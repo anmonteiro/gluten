@@ -114,13 +114,24 @@ let make_default_client ?alpn_protocols socket =
     ());
   Lwt_ssl.ssl_connect socket client_ctx
 
+let rec first_match l1 = function
+  | [] ->
+    None
+  | x :: _ when List.mem x l1 ->
+    Some x
+  | _ :: xs ->
+    first_match l1 xs
+
 let make_server ?alpn_protocols ~certfile ~keyfile socket =
   let server_ctx = Ssl.create_context Ssl.SSLv23 Ssl.Server_context in
   Ssl.disable_protocols server_ctx [ Ssl.SSLv23 ];
   Ssl.use_certificate server_ctx certfile keyfile;
   (match alpn_protocols with
   | Some protos ->
-    Ssl.set_context_alpn_protos server_ctx protos
+    Ssl.set_context_alpn_protos server_ctx protos;
+    Ssl.set_context_alpn_select_callback
+      server_ctx
+      (fun client_protos -> first_match client_protos protos);
   | None ->
     ());
   Lwt_ssl.ssl_accept socket server_ctx
