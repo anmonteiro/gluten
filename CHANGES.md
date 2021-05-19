@@ -1,3 +1,11 @@
+Unreleased
+--------------
+
+- gluten-lwt, gluten-lwt-unix: in the OpenSSL backend, select the ALPN protocol
+  properly ([#20](https://github.com/anmonteiro/gluten/pull/20))
+- Make `(select ...)` compatible with Dune 2.0
+  ([#21](https://github.com/anmonteiro/gluten/pull/21))
+
 0.2.1 2020-05-16
 --------------
 
