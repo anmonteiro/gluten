@@ -83,21 +83,4 @@ module Make_IO (Flow : Mirage_flow.S) :
 end
 
 module Server (Flow : Mirage_flow.S) = Gluten_lwt.Server (Make_IO (Flow))
-
-module Server_with_conduit = struct
-  open Conduit_mirage
-  include Server (Conduit_mirage.Flow)
-
-  type flow = socket
-
-  type t = Conduit_mirage.Flow.flow -> unit Lwt.t
-
-  let listen handler flow =
-    Lwt.finalize (fun () -> handler flow) (fun () -> Flow.close flow)
-
-  let connect t =
-    let listen s f = Conduit_mirage.listen t s (listen f) in
-    Lwt.return listen
-end
-
 module Client (Flow : Mirage_flow.S) = Gluten_lwt.Client (Make_IO (Flow))
