@@ -33,20 +33,5 @@
 module Server (Flow : Mirage_flow.S) :
   Gluten_lwt.Server with type socket = Flow.flow and type addr = unit
 
-module Server_with_conduit : sig
-  type flow = Conduit_mirage.Flow.flow
-
-  include
-    Gluten_lwt.Server
-      with type socket := Conduit_mirage.Flow.flow
-       and type addr = unit
-
-  type t = Conduit_mirage.Flow.flow -> unit Lwt.t
-
-  val connect
-    :  Conduit_mirage.t
-    -> (Conduit_mirage.server -> t -> unit Lwt.t) Lwt.t
-end
-
 module Client (Flow : Mirage_flow.S) :
   Gluten_lwt.Client with type socket = Flow.flow
