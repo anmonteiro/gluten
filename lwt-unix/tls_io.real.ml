@@ -78,7 +78,7 @@ struct
   let shutdown_receive _tls = ()
 end
 
-let null_auth ~host:_ _ = Ok None
+let null_auth ?ip:_ ~host:_ _ = Ok None
 
 let make_client ?alpn_protocols socket =
   let config = Tls.Config.client ?alpn_protocols ~authenticator:null_auth () in
