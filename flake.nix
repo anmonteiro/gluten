@@ -7,7 +7,9 @@
   outputs = { self, nixpkgs, flake-utils }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = nixpkgs.legacyPackages."${system}";
+        pkgs = nixpkgs.legacyPackages."${system}".extend (self: super: {
+          ocamlPackages = super.ocaml-ng.ocamlPackages_4_13;
+        });
       in
       rec {
         packages = pkgs.callPackage ./nix { inherit pkgs; };
