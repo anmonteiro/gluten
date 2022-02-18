@@ -12,16 +12,9 @@ let
       (import src)
       (self: super: {
         ocamlPackages = super.ocaml-ng."ocamlPackages_${ocamlVersion}";
-
-        pkgsCross.musl64 = super.pkgsCross.musl64 // {
-          ocamlPackages = super.pkgsCross.musl64.ocaml-ng."ocamlPackages_${ocamlVersion}";
-        };
       })
     ];
   };
 
 in
-import ./.. {
-  inherit pkgs ocamlVersion;
-  doCheck = true;
-}
+pkgs.callPackages ./.. { doCheck = true; }

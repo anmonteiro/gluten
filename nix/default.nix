@@ -1,9 +1,4 @@
-{ pkgs, doCheck ? true }:
-
-let
-  inherit (pkgs) lib stdenv ocamlPackages;
-
-in
+{ lib, stdenv, ocamlPackages, doCheck ? true }:
 
 with ocamlPackages;
 
