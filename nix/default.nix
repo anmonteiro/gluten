@@ -13,48 +13,46 @@ let
     useDune2 = true;
     doCheck = false;
   } // args);
-
-  glutenPackages = rec {
-    gluten = buildGluten {
-      pname = "gluten";
-      src = genSrc {
-        dirs = [ "lib" ];
-        files = [ "gluten.opam" ];
-      };
-      propagatedBuildInputs = [ bigstringaf faraday ];
-    };
-
-    gluten-lwt = buildGluten {
-      pname = "gluten-lwt";
-      src = genSrc {
-        dirs = [ "lwt" ];
-        files = [ "gluten-lwt.opam" ];
-      };
-      propagatedBuildInputs = [ gluten lwt ];
-    };
-
-    gluten-lwt-unix = buildGluten {
-      pname = "gluten-lwt-unix";
-      src = genSrc {
-        dirs = [ "lwt-unix" ];
-        files = [ "gluten-lwt-unix.opam" ];
-      };
-      propagatedBuildInputs = [
-        faraday-lwt-unix
-        gluten-lwt
-        lwt_ssl
-      ];
-    };
-  };
 in
-glutenPackages // (if (lib.versionOlder "4.08" ocaml.version) then {
+rec {
+  gluten = buildGluten {
+    pname = "gluten";
+    src = genSrc {
+      dirs = [ "lib" ];
+      files = [ "gluten.opam" ];
+    };
+    propagatedBuildInputs = [ bigstringaf faraday ];
+  };
+
+  gluten-lwt = buildGluten {
+    pname = "gluten-lwt";
+    src = genSrc {
+      dirs = [ "lwt" ];
+      files = [ "gluten-lwt.opam" ];
+    };
+    propagatedBuildInputs = [ gluten lwt ];
+  };
+
+  gluten-lwt-unix = buildGluten {
+    pname = "gluten-lwt-unix";
+    src = genSrc {
+      dirs = [ "lwt-unix" ];
+      files = [ "gluten-lwt-unix.opam" ];
+    };
+    propagatedBuildInputs = [
+      faraday-lwt-unix
+      gluten-lwt
+      lwt_ssl
+    ];
+  };
+
   gluten-async = buildGluten {
     pname = "gluten-async";
     src = genSrc {
       dirs = [ "async" ];
       files = [ "gluten-async.opam" ];
     };
-    propagatedBuildInputs = with glutenPackages; [
+    propagatedBuildInputs = [
       faraday-async
       gluten
       async_ssl
@@ -67,7 +65,7 @@ glutenPackages // (if (lib.versionOlder "4.08" ocaml.version) then {
       dirs = [ "mirage" ];
       files = [ "gluten-mirage.opam" ];
     };
-    propagatedBuildInputs = with glutenPackages; [
+    propagatedBuildInputs = [
       faraday-lwt
       gluten-lwt
       conduit-mirage
@@ -75,4 +73,5 @@ glutenPackages // (if (lib.versionOlder "4.08" ocaml.version) then {
       cstruct
     ];
   };
-} else { })
+
+}
