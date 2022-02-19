@@ -98,3 +98,22 @@ type 'reqd reqd = 'reqd Reqd.t = private
   { reqd : 'reqd
   ; upgrade : impl -> unit
   }
+
+module Buffer : sig
+  type t
+
+  val create : int -> t
+
+  val get : t -> f:(Bigstringaf.t -> off:int -> len:int -> int) -> int
+
+  val put
+    :  t
+    -> f:
+         (Bigstringaf.t
+          -> off:int
+          -> len:int
+          -> ([ `Eof | `Ok of int ] -> unit)
+          -> unit)
+    -> ([ `Eof | `Ok of int ] -> unit)
+    -> unit
+end

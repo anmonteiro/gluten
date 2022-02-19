@@ -21,7 +21,7 @@ let
         dirs = [ "lib" ];
         files = [ "gluten.opam" ];
       };
-      propagatedBuildInputs = [ bigstringaf faraday ];
+      propagatedBuildInputs = [ bigstringaf faraday ke ];
     };
 
     gluten-lwt = buildGluten {

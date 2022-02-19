@@ -133,3 +133,42 @@ type 'reqd reqd = 'reqd Reqd.t = private
   { reqd : 'reqd
   ; upgrade : impl -> unit
   }
+
+module Qe = Ke.Rke.Weighted
+
+module Buffer = struct
+  type t = (char, Bigarray.int8_unsigned_elt) Qe.t
+
+  let create capacity =
+    let queue, _ = Qe.create ~capacity Bigarray.char in
+    queue
+
+  let get t ~f =
+    match Qe.N.peek t with
+    | [] ->
+      f Bigstringaf.empty ~off:0 ~len:0
+    | [ slice ] ->
+      assert (Bigstringaf.length slice = Qe.length t);
+      let n = f slice ~off:0 ~len:(Bigstringaf.length slice) in
+      Qe.N.shift_exn t n;
+      n
+    | _ :: _ ->
+      (* Should never happen because we compress on every `put`, and therefore
+       * the Queue never wraps around to the beginning. *)
+      assert false
+
+  let blit _src _off _dst _dst_off _len = ()
+
+  let put t ~f k =
+    Qe.compress t;
+    let buffer = Qe.unsafe_bigarray t in
+    f buffer ~off:(Qe.length t) ~len:(Qe.available t) (function
+        | `Eof ->
+          k `Eof
+        | `Ok n as ret ->
+          (* Increment the offset, without making a copy *)
+          let (_ : ('a, 'b) Qe.N.bigarray list) =
+            Qe.N.push_exn t ~blit ~length:(fun _ -> n) buffer
+          in
+          k ret)
+end
