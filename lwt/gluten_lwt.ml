@@ -176,4 +176,6 @@ module Client (Io : IO) = struct
     Io.close t.socket
 
   let is_closed t = Client_connection.is_closed t.connection
+
+  let socket t = t.socket
 end
