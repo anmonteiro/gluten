@@ -93,4 +93,6 @@ module type Client = sig
   val shutdown : t -> unit Lwt.t
 
   val is_closed : t -> bool
+
+  val socket : t -> socket
 end
