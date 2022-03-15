@@ -15,7 +15,6 @@ depends: [
   "gluten" {= version}
   "faraday-async"
   "async" { >= "v0.14.0" }
-  "bigstring_unix"
 ]
 depopts: ["async_ssl"]
 synopsis: "Async runtime for gluten"
