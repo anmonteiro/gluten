@@ -251,7 +251,22 @@ module Client = struct
   module SSL = struct
     include Make_client (Ssl_io.Io)
 
-    let create_default ?alpn_protocols socket =
-      Ssl_io.make_default_client ?alpn_protocols socket
+    let create_default
+        ?crt_file
+        ?key_file
+        ?ca_file
+        ?ca_path
+        ?verify_modes
+        ?alpn_protocols
+        socket
+      =
+      Ssl_io.make_default_client
+        ?crt_file
+        ?key_file
+        ?ca_file
+        ?ca_path
+        ?verify_modes
+        ?alpn_protocols
+        socket
   end
 end

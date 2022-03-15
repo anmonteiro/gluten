@@ -89,7 +89,8 @@ module Io :
     Ivar.read closed
 end
 
-(* taken from https://github.com/janestreet/async_extra/blob/master/src/tcp.ml *)
+(* taken from
+   https://github.com/janestreet/async_extra/blob/master/src/tcp.ml *)
 let reader_writer_of_sock
     ?buffer_age_limit ?reader_buffer_size ?writer_buffer_size s
   =
@@ -97,12 +98,42 @@ let reader_writer_of_sock
   ( Reader.create ?buf_len:reader_buffer_size fd
   , Writer.create ?buffer_age_limit ?buf_len:writer_buffer_size fd )
 
-let connect r w =
+let connect ?crt_file ?key_file ?ca_file ?ca_path ?verify_modes r w =
   let net_to_ssl = Reader.pipe r in
   let ssl_to_net = Writer.pipe w in
   let app_to_ssl, app_wr = Pipe.create () in
   let app_rd, ssl_to_app = Pipe.create () in
-  Ssl.client ~app_to_ssl ~ssl_to_app ~net_to_ssl ~ssl_to_net ()
+  let verify_modes =
+    match verify_modes with
+    | None ->
+      None
+    | Some verify_modes ->
+      let verify_modes =
+        List.map verify_modes ~f:(fun verify_mode ->
+            let open Async_ssl.Verify_mode in
+            match verify_mode with
+            | `Verify_none ->
+              Verify_none
+            | `Verify_peer ->
+              Verify_peer
+            | `Verify_fail_if_no_peer_ert ->
+              Verify_fail_if_no_peer_cert
+            | `Verify_client_once ->
+              Verify_client_once)
+      in
+      Some verify_modes
+  in
+  Ssl.client
+    ?crt_file
+    ?key_file
+    ?ca_file
+    ?ca_path
+    ?verify_modes
+    ~app_to_ssl
+    ~ssl_to_app
+    ~net_to_ssl
+    ~ssl_to_net
+    ()
   |> Deferred.Or_error.ok_exn
   >>= fun _connection ->
   Reader.of_pipe (Info.of_string "httpaf_async_ssl_reader") app_rd
@@ -118,9 +149,11 @@ let connect r w =
 
 (* XXX(anmonteiro): Unfortunately Async_ssl doesn't seem to support configuring
  * the ALPN protocols *)
-let make_default_client ?alpn_protocols:_ socket =
+let make_default_client
+    ?crt_file ?key_file ?ca_file ?ca_path ?verify_modes ?alpn_protocols:_ socket
+  =
   let reader, writer = reader_writer_of_sock socket in
-  connect reader writer
+  connect ?crt_file ?key_file ?ca_file ?ca_path ?verify_modes reader writer
 
 let listen ~crt_file ~key_file r w =
   let net_to_ssl = Reader.pipe r in
