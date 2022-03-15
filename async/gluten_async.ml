@@ -228,14 +228,14 @@ module Unix_io :
           (Fd.syscall fd ~nonblocking:true (fun file_descr ->
                Unix.Syscall_result.Int.ok_or_unix_error_exn
                  ~syscall_name:"read"
-                 (Bigstring.read_assume_fd_is_nonblocking
+                 (Bigstring_unix.read_assume_fd_is_nonblocking
                     file_descr
                     bigstring
                     ~pos:off
                     ~len)))
       else
         Fd.syscall_in_thread fd ~name:"read" (fun file_descr ->
-            Bigstring.read file_descr bigstring ~pos:off ~len)
+            Bigstring_unix.read file_descr bigstring ~pos:off ~len)
         >>= fun result -> finish fd buffer result
     in
     go fd bigstring
@@ -311,7 +311,22 @@ module Client = struct
   module SSL = struct
     include Make_client (Ssl_io.Io)
 
-    let create_default ?alpn_protocols socket =
-      Ssl_io.make_default_client ?alpn_protocols socket
+    let create_default
+        ?crt_file
+        ?key_file
+        ?ca_file
+        ?ca_path
+        ?verify_modes
+        ?alpn_protocols
+        socket
+      =
+      Ssl_io.make_default_client
+        ?crt_file
+        ?key_file
+        ?ca_file
+        ?ca_path
+        ?verify_modes
+        ?alpn_protocols
+        socket
   end
 end

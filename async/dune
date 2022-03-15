@@ -4,6 +4,7 @@
  (libraries
   async
   core
+  core.bigstring_unix
   faraday-async
   gluten
   (select
