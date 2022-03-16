@@ -35,29 +35,24 @@ open Async
 open Async_ssl
 module Unix = Core.Unix
 
-type descriptor =
-  { reader : Reader.t
-  ; writer : Writer.t
-  ; closed : unit Ivar.t
-  }
+(* This is now a tuple instead of a nominative record so we can provide a public
+   interface that can be shared with ssl_io.dummy.ml. reader, writer, closed
+   ivar *)
+type descriptor = Reader.t * Writer.t * unit Ivar.t
 
 module Io :
   Gluten_async_intf.IO
     with type socket = descriptor
      and type addr = Socket.Address.Inet.t = struct
-  type socket = descriptor =
-    { reader : Reader.t
-    ; writer : Writer.t
-    ; closed : unit Ivar.t
-    }
+  type socket = descriptor
 
   type addr = Socket.Address.Inet.t
 
-  let read { reader; _ } bigstring ~off ~len =
+  let read (reader, _, _) bigstring ~off ~len =
     let bigsubstr = Bigsubstring.create ~pos:off ~len bigstring in
     Reader.read_bigsubstring reader bigsubstr
 
-  let writev { writer; _ } iovecs =
+  let writev (_, writer, _) iovecs =
     let iovecs_q = Queue.create ~capacity:(List.length iovecs) () in
     let len =
       List.fold
@@ -83,13 +78,14 @@ module Io :
    * conection is closing. *)
   let shutdown_receive _ = ()
 
-  let close { reader; writer; closed } =
+  let close (reader, writer, closed) =
     Writer.flushed writer >>= fun () ->
     Deferred.all_unit [ Writer.close writer; Reader.close reader ] >>= fun () ->
     Ivar.read closed
 end
 
-(* taken from https://github.com/janestreet/async_extra/blob/master/src/tcp.ml *)
+(* taken from
+   https://github.com/janestreet/async_extra/blob/master/src/tcp.ml *)
 let reader_writer_of_sock
     ?buffer_age_limit ?reader_buffer_size ?writer_buffer_size s
   =
@@ -114,7 +110,10 @@ let connect r w =
     ( closed_and_flushed >>= fun () ->
       Reader.close_finished app_reader >>| fun () ->
       Writer.close w >>> Ivar.fill ivar );
-  { reader = app_reader; writer = app_writer; closed = Ivar.create () }
+  let reader = app_reader in
+  let writer = app_writer in
+  let closed = Ivar.create () in
+  reader, writer, closed
 
 (* XXX(anmonteiro): Unfortunately Async_ssl doesn't seem to support configuring
  * the ALPN protocols *)
@@ -146,7 +145,10 @@ let listen ~crt_file ~key_file r w =
     ( closed_and_flushed >>= fun () ->
       Reader.close_finished app_reader >>| fun () ->
       Writer.close w >>> Ivar.fill ivar );
-  { reader = app_reader; writer = app_writer; closed = ivar }
+  let reader = app_reader in
+  let writer = app_writer in
+  let closed = ivar in
+  reader, writer, closed
 
 (* XXX(anmonteiro): Unfortunately Async_ssl doesn't seem to support configuring
  * the ALPN protocols *)
