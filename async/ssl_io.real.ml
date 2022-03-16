@@ -149,11 +149,9 @@ let connect ?crt_file ?key_file ?ca_file ?ca_path ?verify_modes r w =
 
 (* XXX(anmonteiro): Unfortunately Async_ssl doesn't seem to support configuring
  * the ALPN protocols *)
-let make_default_client
-    ?crt_file ?key_file ?ca_file ?ca_path ?verify_modes ?alpn_protocols:_ socket
-  =
+let make_default_client ?alpn_protocols:_ socket =
   let reader, writer = reader_writer_of_sock socket in
-  connect ?crt_file ?key_file ?ca_file ?ca_path ?verify_modes reader writer
+  connect reader writer
 
 let listen ~crt_file ~key_file r w =
   let net_to_ssl = Reader.pipe r in

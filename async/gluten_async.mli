@@ -66,18 +66,7 @@ module Client : sig
     include Gluten_async_intf.Client with type socket = Ssl_io.descriptor
 
     val create_default
-      :  ?crt_file:string
-      -> ?key_file:string
-      -> ?ca_file:string
-      -> ?ca_path:string
-      -> ?verify_modes:
-           [< `Verify_client_once
-           | `Verify_fail_if_no_peer_ert
-           | `Verify_none
-           | `Verify_peer
-           ]
-           list
-      -> ?alpn_protocols:string list
+      :  ?alpn_protocols:string list
       -> ([ `Active ], [< Socket.Address.t ]) Socket.t
       -> socket Deferred.t
   end
