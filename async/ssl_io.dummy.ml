@@ -51,15 +51,7 @@ module Io :
   let close _ = failwith "Ssl not available"
 end
 
-let make_default_client
-    ?crt_file:_
-    ?key_file:_
-    ?ca_file:_
-    ?ca_path:_
-    ?verify_modes:_
-    ?alpn_protocols:_
-    _socket
-  =
+let make_default_client ?alpn_protocols:_ _socket =
   Core.failwith "Ssl not available"
 
 let[@ocaml.warning "-21"] make_server ?alpn_protocols:_ ~certfile:_ ~keyfile:_ =
