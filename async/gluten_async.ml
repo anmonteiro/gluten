@@ -35,7 +35,6 @@
 open Core
 open Async
 module Buffer = Gluten.Buffer
-module Ssl_io = Ssl_io
 
 module IO_loop = struct
   let start

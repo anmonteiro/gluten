@@ -33,7 +33,6 @@
  *---------------------------------------------------------------------------*)
 
 open Async
-module Ssl_io = Ssl_io
 
 module Server : sig
   include
