@@ -11,5 +11,10 @@
    ssl_io.ml
    from
    (async_ssl -> ssl_io.real.ml)
-   (!async_ssl -> ssl_io.dummy.ml)))
- (modules gluten_async gluten_async_intf ssl_io))
+   (!async_ssl -> ssl_io.dummy.ml))
+  (select
+   tls_io.ml
+   from
+   (tls-async -> tls_io.real.ml)
+   (!tls-async -> tls_io.dummy.ml)))
+ (modules gluten_async gluten_async_intf ssl_io tls_io))

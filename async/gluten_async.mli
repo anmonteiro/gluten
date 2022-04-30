@@ -54,6 +54,13 @@ module Server : sig
       -> ([ `Active ], 'a) Socket.t
       -> socket Deferred.t
   end
+
+  (* module TLS : sig include Gluten_async_intf.Server with type socket =
+     Tls_io.descriptor and type addr := Socket.Address.Inet.t
+
+     val create_default : ?alpn_protocols:string list -> certfile:string ->
+     keyfile:string -> 'b -> ([ `Active ], 'a) Socket.t -> socket Deferred.t
+     end *)
 end
 
 module Client : sig
@@ -67,6 +74,16 @@ module Client : sig
     val create_default
       :  ?alpn_protocols:string list
       -> ([ `Active ], [< Socket.Address.t ]) Socket.t
+      -> socket Deferred.t
+  end
+
+  module TLS : sig
+    include Gluten_async_intf.Client with type socket = Tls_io.descriptor
+
+    val create_default
+      :  ?alpn_protocols:string list
+      -> ([ `Unconnected ], Socket.Address.t) Socket.t
+      -> Socket.Address.t Tcp.Where_to_connect.t
       -> socket Deferred.t
   end
 end
