@@ -38,7 +38,7 @@ module Unix = Core.Unix
 (* This is now a tuple instead of a nominative record so we can provide a public
    interface that can be shared with ssl_io.dummy.ml. reader, writer, closed
    ivar *)
-type descriptor = Reader.t * Writer.t * unit Ivar.t
+type descriptor = Reader.t * Writer.t * unit Deferred.t
 
 module Io :
   Gluten_async_intf.IO
@@ -81,7 +81,7 @@ module Io :
   let close (reader, writer, closed) =
     Writer.flushed writer >>= fun () ->
     Deferred.all_unit [ Writer.close writer; Reader.close reader ] >>= fun () ->
-    Ivar.read closed
+    closed
 end
 
 (* taken from
@@ -105,15 +105,14 @@ let connect r w =
   >>= fun app_reader ->
   Writer.of_pipe (Info.of_string "httpaf_async_ssl_writer") app_wr
   >>| fun (app_writer, `Closed_and_flushed_downstream closed_and_flushed) ->
-  let ivar = Ivar.create () in
+  let closed_ivar = Ivar.create () in
   don't_wait_for
     ( closed_and_flushed >>= fun () ->
       Reader.close_finished app_reader >>| fun () ->
-      Writer.close w >>> Ivar.fill ivar );
+      Writer.close w >>> Ivar.fill closed_ivar );
   let reader = app_reader in
   let writer = app_writer in
-  let closed = Ivar.create () in
-  reader, writer, closed
+  reader, writer, Ivar.read closed_ivar
 
 (* XXX(anmonteiro): Unfortunately Async_ssl doesn't seem to support configuring
  * the ALPN protocols *)
@@ -140,15 +139,14 @@ let listen ~crt_file ~key_file r w =
   >>= fun app_reader ->
   Writer.of_pipe (Info.of_string "httpaf_async_ssl_writer") app_wr
   >>| fun (app_writer, `Closed_and_flushed_downstream closed_and_flushed) ->
-  let ivar = Ivar.create () in
+  let closed_ivar = Ivar.create () in
   don't_wait_for
     ( closed_and_flushed >>= fun () ->
       Reader.close_finished app_reader >>| fun () ->
-      Writer.close w >>> Ivar.fill ivar );
+      Writer.close w >>> Ivar.fill closed_ivar );
   let reader = app_reader in
   let writer = app_writer in
-  let closed = ivar in
-  reader, writer, closed
+  reader, writer, Ivar.read closed_ivar
 
 (* XXX(anmonteiro): Unfortunately Async_ssl doesn't seem to support configuring
  * the ALPN protocols *)
