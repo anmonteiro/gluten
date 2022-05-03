@@ -37,7 +37,7 @@ module Unix = Core.Unix
 (* This is now a tuple instead of a nominative record so we can provide a public
    interface that can be shared with ssl_io.dummy.ml. reader, writer, closed
    ivar *)
-type descriptor = Reader.t * Writer.t * unit Ivar.t
+type descriptor = Reader.t * Writer.t * unit Deferred.t
 
 module Io :
   Gluten_async_intf.IO
@@ -80,7 +80,7 @@ module Io :
   let close (reader, writer, closed) =
     Writer.flushed writer >>= fun () ->
     Deferred.all_unit [ Writer.close writer; Reader.close reader ] >>= fun () ->
-    Ivar.read closed
+    closed
 end
 
 let connect ~config ~socket ~where_to_connect ~host =
@@ -94,7 +94,7 @@ let connect ~config ~socket ~where_to_connect ~host =
       ( Deferred.all_unit
           [ Reader.close_finished reader; Writer.close_finished writer ]
       >>| fun () -> Ivar.fill closed () );
-    return (reader, writer, closed)
+    return (reader, writer, Ivar.read closed)
 
 let null_auth ?ip:_ ~host:_ _ = Ok None
 

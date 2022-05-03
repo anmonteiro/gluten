@@ -31,8 +31,7 @@
  *---------------------------------------------------------------------------*)
 open! Async
 
-type descriptor = Reader.t * Writer.t * unit Ivar.t
-(*[ `TLS_not_available ]*)
+type descriptor = Reader.t * Writer.t * unit Deferred.t
 
 module Io :
   Gluten_async_intf.IO
