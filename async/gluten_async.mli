@@ -82,8 +82,8 @@ module Client : sig
 
     val create_default
       :  ?alpn_protocols:string list
-      -> ([ `Unconnected ], Socket.Address.t) Socket.t
-      -> Socket.Address.t Tcp.Where_to_connect.t
+      -> ([ `Unconnected ], 'addr) Socket.t
+      -> 'addr Tcp.Where_to_connect.t
       -> socket Deferred.t
   end
 end

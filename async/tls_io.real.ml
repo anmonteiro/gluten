@@ -98,11 +98,7 @@ let connect ~config ~socket ~where_to_connect ~host =
 
 let null_auth ?ip:_ ~host:_ _ = Ok None
 
-let make_default_client
-    ?alpn_protocols
-    ?host
-    socket
-    (where_to_connect : Socket.Address.t Tcp.Where_to_connect.t)
+let make_default_client ?alpn_protocols ?host socket where_to_connect
     : descriptor Deferred.t
   =
   let config = Tls.Config.client ?alpn_protocols ~authenticator:null_auth () in
