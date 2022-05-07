@@ -33,7 +33,7 @@
 open Core
 open Async
 open Async_ssl
-module Unix = Core.Unix
+module Unix = Core_unix
 
 (* This is now a tuple instead of a nominative record so we can provide a public
    interface that can be shared with ssl_io.dummy.ml. reader, writer, closed

@@ -7,6 +7,8 @@ Unreleased
   ([#21](https://github.com/anmonteiro/gluten/pull/21))
 - Adapt to newer conduit versions by removing `Server_with_conduit`
   ([#22](https://github.com/anmonteiro/gluten/pull/22))
+- gluten-async: Depend on `core` and `async` >= v.0.15.0
+  ([#30](https://github.com/anmonteiro/gluten/pull/30))
 
 0.2.1 2020-05-16
 --------------
