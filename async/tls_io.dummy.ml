@@ -50,8 +50,11 @@ module Io :
   let close _ = failwith "TLS not available"
 end
 
-let make_default_client ?alpn_protocols:_ _socket = failwith "TLS not available"
+let make_default_client ?alpn_protocols:_ ?host:_ _socket _where_to_connect =
+  failwith "TLS not available"
 
-let[@ocaml.warning "-21"] make_server ?alpn_protocols:_ ~certfile:_ ~keyfile:_ =
+let[@ocaml.warning "-21"] make_server
+    ?alpn_protocols:_ ~certfile:_ ~keyfile:_ _socket
+  =
   failwith "TLS not available";
   fun _socket -> failwith "TLS not available"
