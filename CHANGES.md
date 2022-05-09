@@ -9,6 +9,8 @@ Unreleased
   ([#22](https://github.com/anmonteiro/gluten/pull/22))
 - gluten-async: Depend on `core` and `async` >= v.0.15.0
   ([#30](https://github.com/anmonteiro/gluten/pull/30))
+- gluten-async: Add `tls-async` I/O support on the client
+  ([#31](https://github.com/anmonteiro/gluten/pull/31))
 
 0.2.1 2020-05-16
 --------------
