@@ -1,5 +1,5 @@
 (*----------------------------------------------------------------------------
- *  Copyright (c) 2019-2020 António Nuno Monteiro
+ *  Copyright (c) 2019 António Nuno Monteiro
  *
  *  All rights reserved.
  *
@@ -29,31 +29,32 @@
  *  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  *  POSSIBILITY OF SUCH DAMAGE.
  *---------------------------------------------------------------------------*)
-
-open Async
+open! Async
 
 type descriptor = [ `Ssl_not_available ]
 
 module Io :
   Gluten_async_intf.IO
     with type socket = descriptor
-     and type addr = Socket.Address.Inet.t = struct
+     and type addr = Unix.sockaddr = struct
   type socket = descriptor
 
-  type addr = Socket.Address.Inet.t
+  type addr = Unix.sockaddr
 
-  let read _ _bigstring ~off:_ ~len:_ = failwith "Ssl not available"
+  let read _ _bigstring ~off:_ ~len:_ = failwith "TLS not available"
 
-  let writev _ _iovecs = failwith "Ssl not available"
+  let writev _ _iovecs = failwith "TLS not available"
 
-  let shutdown_receive _ = failwith "Ssl not available"
+  let shutdown_receive _ = failwith "TLS not available"
 
-  let close _ = failwith "Ssl not available"
+  let close _ = failwith "TLS not available"
 end
 
-let make_default_client ?alpn_protocols:_ _socket =
-  Core.failwith "Ssl not available"
+let make_default_client ?alpn_protocols:_ ?host:_ _socket _where_to_connect =
+  failwith "TLS not available"
 
-let[@ocaml.warning "-21"] make_server ?alpn_protocols:_ ~certfile:_ ~keyfile:_ =
-  failwith "Ssl not available";
-  fun _socket -> Core.failwith "Ssl not available"
+let[@ocaml.warning "-21"] make_server
+    ?alpn_protocols:_ ~certfile:_ ~keyfile:_ _socket
+  =
+  failwith "TLS not available";
+  fun _socket -> failwith "TLS not available"

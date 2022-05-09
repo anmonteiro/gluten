@@ -32,8 +32,7 @@
 
 open Core
 open Async
-open Async_ssl
-module Unix = Core_unix
+module Unix = Core.Unix
 
 (* This is now a tuple instead of a nominative record so we can provide a public
    interface that can be shared with ssl_io.dummy.ml. reader, writer, closed
@@ -85,72 +84,38 @@ module Io :
     closed
 end
 
-(* taken from
-   https://github.com/janestreet/async_extra/blob/master/src/tcp.ml *)
-let reader_writer_of_sock
-    ?buffer_age_limit ?reader_buffer_size ?writer_buffer_size s
+let connect ~config ~socket ~where_to_connect ~host =
+  Tls_async.connect ~socket config where_to_connect ~host >>= fun res ->
+  match res with
+  | Error e ->
+    failwithf "Gluten_async.Tls_io.connect: %s" (Error.to_string_hum e) ()
+  | Ok (_session, reader, writer) ->
+    let closed = Ivar.create () in
+    don't_wait_for
+      ( Deferred.all_unit
+          [ Reader.close_finished reader; Writer.close_finished writer ]
+      >>| fun () -> Ivar.fill closed () );
+    return (reader, writer, Ivar.read closed)
+
+let null_auth ?ip:_ ~host:_ _ = Ok None
+
+let make_default_client ?alpn_protocols ?host socket where_to_connect
+    : descriptor Deferred.t
   =
-  let fd = Socket.fd s in
-  ( Reader.create ?buf_len:reader_buffer_size fd
-  , Writer.create ?buffer_age_limit ?buf_len:writer_buffer_size fd )
+  let config = Tls.Config.client ?alpn_protocols ~authenticator:null_auth () in
+  connect ~config ~socket ~where_to_connect ~host
 
-let connect r w =
-  let net_to_ssl = Reader.pipe r in
-  let ssl_to_net = Writer.pipe w in
-  let app_to_ssl, app_wr = Pipe.create () in
-  let app_rd, ssl_to_app = Pipe.create () in
-  Ssl.client ~app_to_ssl ~ssl_to_app ~net_to_ssl ~ssl_to_net ()
-  |> Deferred.Or_error.ok_exn
-  >>= fun _connection ->
-  Reader.of_pipe (Info.of_string "httpaf_async_ssl_reader") app_rd
-  >>= fun app_reader ->
-  Writer.of_pipe (Info.of_string "httpaf_async_ssl_writer") app_wr
-  >>| fun (app_writer, `Closed_and_flushed_downstream closed_and_flushed) ->
-  let closed_ivar = Ivar.create () in
-  don't_wait_for
-    ( closed_and_flushed >>= fun () ->
-      Reader.close_finished app_reader >>| fun () ->
-      Writer.close w >>> Ivar.fill closed_ivar );
-  let reader = app_reader in
-  let writer = app_writer in
-  reader, writer, Ivar.read closed_ivar
+(* let make_server ?alpn_protocols ~certfile ~keyfile _socket =
+   Tls_async.X509_async.Certificate.of_pem_file certfile |>
+   Deferred.Or_error.ok_exn >>= fun certificate ->
+   Tls_async.X509_async.Private_key.of_pem_file keyfile |>
+   Deferred.Or_error.ok_exn >>= fun priv_key -> let _config = Tls.Config.(
+   server ?alpn_protocols ~version:(`TLS_1_0, `TLS_1_2) ~certificates:(`Single
+   (certificate, priv_key)) ~ciphers:Ciphers.supported ()) in failwithf
+   "Gluten_async.TLS.make_server: unimplemented" () *)
 
-(* XXX(anmonteiro): Unfortunately Async_ssl doesn't seem to support configuring
- * the ALPN protocols *)
-let make_default_client ?alpn_protocols:_ socket =
-  let reader, writer = reader_writer_of_sock socket in
-  connect reader writer
-
-let listen ~crt_file ~key_file r w =
-  let net_to_ssl = Reader.pipe r in
-  let ssl_to_net = Writer.pipe w in
-  let app_to_ssl, app_wr = Pipe.create () in
-  let app_rd, ssl_to_app = Pipe.create () in
-  Ssl.server
-    ~crt_file
-    ~key_file
-    ~app_to_ssl
-    ~ssl_to_app
-    ~net_to_ssl
-    ~ssl_to_net
-    ()
-  |> Deferred.Or_error.ok_exn
-  >>= fun _connection ->
-  Reader.of_pipe (Info.of_string "httpaf_async_ssl_reader") app_rd
-  >>= fun app_reader ->
-  Writer.of_pipe (Info.of_string "httpaf_async_ssl_writer") app_wr
-  >>| fun (app_writer, `Closed_and_flushed_downstream closed_and_flushed) ->
-  let closed_ivar = Ivar.create () in
-  don't_wait_for
-    ( closed_and_flushed >>= fun () ->
-      Reader.close_finished app_reader >>| fun () ->
-      Writer.close w >>> Ivar.fill closed_ivar );
-  let reader = app_reader in
-  let writer = app_writer in
-  reader, writer, Ivar.read closed_ivar
-
-(* XXX(anmonteiro): Unfortunately Async_ssl doesn't seem to support configuring
- * the ALPN protocols *)
-let make_server ?alpn_protocols:_ ~certfile ~keyfile socket =
-  let reader, writer = reader_writer_of_sock socket in
-  listen ~crt_file:certfile ~key_file:keyfile reader writer
+let[@ocaml.warning "-21"] make_server
+    ?alpn_protocols:_ ~certfile:_ ~keyfile:_ _socket
+  =
+  failwith "Tls_async Server not implemented";
+  fun _socket -> Core.failwith "Tls_async Server not implemented"

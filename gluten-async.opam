@@ -17,5 +17,8 @@ depends: [
   "async" { >= "v0.15.0" }
   "core" { >= "v0.15.0" }
 ]
-depopts: ["async_ssl"]
+depopts: [
+  "async_ssl"
+  "tls-async"
+ ]
 synopsis: "Async runtime for gluten"
