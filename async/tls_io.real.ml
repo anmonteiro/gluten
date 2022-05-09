@@ -52,21 +52,22 @@ module Io :
     Reader.read_bigsubstring reader bigsubstr
 
   let writev (_, writer, _) iovecs =
-    let iovecs_q = Queue.create ~capacity:(List.length iovecs) () in
-    let len =
-      List.fold
-        ~init:0
-        ~f:(fun acc { Faraday.buffer; off = pos; len } ->
-          Queue.enqueue iovecs_q (Unix.IOVec.of_bigstring ~pos ~len buffer);
-          acc + len)
-        iovecs
-    in
-    if Writer.is_closed writer then
+    match Writer.is_closed writer with
+    | true ->
       Deferred.return `Closed
-    else (
+    | false ->
+      let iovecs_q = Queue.create ~capacity:(List.length iovecs) () in
+      let len =
+        List.fold
+          ~init:0
+          ~f:(fun acc { Faraday.buffer; off = pos; len } ->
+            Queue.enqueue iovecs_q (Unix.IOVec.of_bigstring ~pos ~len buffer);
+            acc + len)
+          iovecs
+      in
       Writer.schedule_iovecs writer iovecs_q;
       let pipe = Writer.pipe writer in
-      Pipe.downstream_flushed pipe >>| fun _ -> `Ok len)
+      Pipe.downstream_flushed pipe >>| fun _ -> `Ok len
 
   (* From RFC8446§6.1:
    *   The client and the server must share knowledge that the connection is
