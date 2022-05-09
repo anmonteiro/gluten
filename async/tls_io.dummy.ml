@@ -31,7 +31,7 @@
  *---------------------------------------------------------------------------*)
 open! Async
 
-type descriptor = Reader.t * Writer.t * unit Deferred.t
+type descriptor = [ `Ssl_not_available ]
 
 module Io :
   Gluten_async_intf.IO
