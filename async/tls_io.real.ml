@@ -32,7 +32,7 @@
 
 open Core
 open Async
-module Unix = Core.Unix
+module IOVec = Core_unix.IOVec
 
 (* This is now a tuple instead of a nominative record so we can provide a public
    interface that can be shared with ssl_io.dummy.ml. reader, writer, closed
@@ -61,7 +61,7 @@ module Io :
         List.fold
           ~init:0
           ~f:(fun acc { Faraday.buffer; off = pos; len } ->
-            Queue.enqueue iovecs_q (Unix.IOVec.of_bigstring ~pos ~len buffer);
+            Queue.enqueue iovecs_q (IOVec.of_bigstring ~pos ~len buffer);
             acc + len)
           iovecs
       in
