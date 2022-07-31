@@ -35,13 +35,10 @@ open Lwt.Infix
 module Make_IO (Flow : Mirage_flow.S) :
   Gluten_lwt.IO with type socket = Flow.flow and type addr = unit = struct
   type socket = Flow.flow
-
   type addr = unit
 
   let shutdown flow = Flow.close flow
-
   let shutdown_receive flow = Lwt.async (fun () -> shutdown flow)
-
   let close = shutdown
 
   let read flow bigstring ~off ~len:_ =
@@ -49,11 +46,7 @@ module Make_IO (Flow : Mirage_flow.S) :
       (fun () ->
         Flow.read flow >|= function
         | Ok (`Data buf) ->
-          Bigstringaf.blit
-            buf.buffer
-            ~src_off:buf.off
-            bigstring
-            ~dst_off:off
+          Bigstringaf.blit buf.buffer ~src_off:buf.off bigstring ~dst_off:off
             ~len:buf.len;
           `Ok buf.len
         | Ok `Eof ->

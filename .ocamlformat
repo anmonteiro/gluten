@@ -1,4 +1,4 @@
-profile = sparse
+profile = default
 break-cases = nested
 break-fun-decl = smart
 cases-exp-indent = 2
