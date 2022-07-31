@@ -32,19 +32,54 @@
 
 open Lwt.Infix
 
+type 'a socket = {
+  flow : 'a;
+  mutable buf : Cstruct.t;
+}
+
+let create_socket flow = { flow; buf = Cstruct.empty }
+
 module Make_IO (Flow : Mirage_flow.S) :
-  Gluten_lwt.IO with type socket = Flow.flow and type addr = unit = struct
-  type socket = Flow.flow
+  Gluten_lwt.IO with type socket = Flow.flow socket and type addr = unit =
+struct
+  type nonrec socket = Flow.flow socket
   type addr = unit
 
-  let shutdown flow = Flow.close flow
-  let shutdown_receive flow = Lwt.async (fun () -> shutdown flow)
+  let shutdown sock = Flow.close sock.flow
+  let shutdown_receive sock = Lwt.async (fun () -> shutdown sock)
   let close = shutdown
 
-  let read flow bigstring ~off ~len:_ =
+  let buffered_read sock len =
+    let trunc buf =
+      match Cstruct.length buf > len with
+      | false ->
+        buf
+      | true ->
+        let head, rest = Cstruct.split buf len in
+        sock.buf <- rest;
+        head
+    in
+    let buffered_data =
+      match Cstruct.is_empty sock.buf with
+      | true ->
+        None
+      | false ->
+        let buf = sock.buf in
+        sock.buf <- Cstruct.empty;
+        Some (Ok (`Data (trunc buf)))
+    in
+    match buffered_data with
+    | Some data ->
+      Lwt.return data
+    | None -> (
+      Flow.read sock.flow >|= fun data ->
+      assert (Cstruct.is_empty sock.buf);
+      match data with Ok (`Data buf) -> Ok (`Data (trunc buf)) | x -> x)
+
+  let read sock bigstring ~off ~len =
     Lwt.catch
       (fun () ->
-        Flow.read flow >|= function
+        buffered_read sock len >|= function
         | Ok (`Data buf) ->
           Bigstringaf.blit buf.buffer ~src_off:buf.off bigstring ~dst_off:off
             ~len:buf.len;
@@ -53,18 +88,21 @@ module Make_IO (Flow : Mirage_flow.S) :
           `Eof
         | Error error ->
           failwith (Format.asprintf "%a" Flow.pp_error error))
-      (fun exn -> shutdown flow >>= fun () -> Lwt.fail exn)
+      (fun exn -> shutdown sock >>= fun () -> Lwt.fail exn)
 
-  let writev flow iovecs =
+  let writev sock iovecs =
     let cstruct_iovecs =
       List.map
         (fun { Faraday.buffer; off; len } ->
           Cstruct.of_bigarray ~off ~len buffer)
         iovecs
     in
+    let len = Cstruct.lenv cstruct_iovecs in
+    let data = Cstruct.create_unsafe len in
+    let _, _ = Cstruct.fillv ~src:cstruct_iovecs ~dst:data in
     Lwt.catch
       (fun () ->
-        Flow.writev flow cstruct_iovecs >|= fun x ->
+        Flow.write sock.flow data >|= fun x ->
         match x with
         | Ok () ->
           `Ok (Cstruct.lenv cstruct_iovecs)
@@ -72,7 +110,7 @@ module Make_IO (Flow : Mirage_flow.S) :
           `Closed
         | Error other_error ->
           raise (Failure (Format.asprintf "%a" Flow.pp_write_error other_error)))
-      (fun exn -> shutdown flow >>= fun () -> Lwt.fail exn)
+      (fun exn -> shutdown sock >>= fun () -> Lwt.fail exn)
 end
 
 module Server (Flow : Mirage_flow.S) = Gluten_lwt.Server (Make_IO (Flow))

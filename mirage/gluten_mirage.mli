@@ -30,8 +30,12 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *---------------------------------------------------------------------------*)
 
+type 'a socket
+
+val create_socket : 'a -> 'a socket
+
 module Server (Flow : Mirage_flow.S) :
-  Gluten_lwt.Server with type socket = Flow.flow and type addr = unit
+  Gluten_lwt.Server with type socket = Flow.flow socket and type addr = unit
 
 module Client (Flow : Mirage_flow.S) :
-  Gluten_lwt.Client with type socket = Flow.flow
+  Gluten_lwt.Client with type socket = Flow.flow socket
