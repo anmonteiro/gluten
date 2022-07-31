@@ -32,19 +32,80 @@
 
 open Lwt.Infix
 
-module Make_IO (Flow : Mirage_flow.S) :
-  Gluten_lwt.IO with type socket = Flow.flow and type addr = unit = struct
-  type socket = Flow.flow
+module type Flow = sig
+  module Mirage : Mirage_flow.S
+
+  type data = (Cstruct.t Mirage_flow.or_eof, Mirage.error) result
+  type t
+
+  val create : Mirage.flow -> t
+  val read : t -> int -> data Lwt.t
+  val writev : t -> Cstruct.t list -> (unit, Mirage.write_error) result Lwt.t
+  val close : t -> unit Lwt.t
+end
+
+module Make_flow (Flow : Mirage_flow.S) : Flow with module Mirage = Flow =
+struct
+  module Mirage = Flow
+
+  type data = (Cstruct.t Mirage_flow.or_eof, Mirage.error) result
+
+  type t = {
+    flow : Flow.flow;
+    mutable buf : Cstruct.t;
+  }
+
+  let create flow = { flow; buf = Cstruct.empty }
+
+  let writev v bufs =
+    let len = Cstruct.lenv bufs in
+    let data = Cstruct.create_unsafe len in
+    let _, _ = Cstruct.fillv ~src:bufs ~dst:data in
+    Mirage.write v.flow data
+
+  let close v = Mirage.close v.flow
+
+  let read v len =
+    let trunc buf =
+      match Cstruct.length buf > len with
+      | false ->
+        buf
+      | true ->
+        let head, rest = Cstruct.split buf len in
+        v.buf <- rest;
+        head
+    in
+    let buffered_data =
+      match Cstruct.is_empty v.buf with
+      | true ->
+        None
+      | false ->
+        let buf = v.buf in
+        v.buf <- Cstruct.empty;
+        Some (Ok (`Data (trunc buf)))
+    in
+    match buffered_data with
+    | Some data ->
+      Lwt.return data
+    | None -> (
+      Flow.read v.flow >|= fun data ->
+      assert (Cstruct.is_empty v.buf);
+      match data with Ok (`Data buf) -> Ok (`Data (trunc buf)) | x -> x)
+end
+
+module Make_IO (Flow : Flow) :
+  Gluten_lwt.IO with type socket = Flow.t and type addr = unit = struct
+  type socket = Flow.t
   type addr = unit
 
   let shutdown flow = Flow.close flow
   let shutdown_receive flow = Lwt.async (fun () -> shutdown flow)
   let close = shutdown
 
-  let read flow bigstring ~off ~len:_ =
+  let read flow bigstring ~off ~len =
     Lwt.catch
       (fun () ->
-        Flow.read flow >|= function
+        Flow.read flow len >|= function
         | Ok (`Data buf) ->
           Bigstringaf.blit buf.buffer ~src_off:buf.off bigstring ~dst_off:off
             ~len:buf.len;
@@ -52,7 +113,7 @@ module Make_IO (Flow : Mirage_flow.S) :
         | Ok `Eof ->
           `Eof
         | Error error ->
-          failwith (Format.asprintf "%a" Flow.pp_error error))
+          failwith (Format.asprintf "%a" Flow.Mirage.pp_error error))
       (fun exn -> shutdown flow >>= fun () -> Lwt.fail exn)
 
   let writev flow iovecs =
@@ -71,9 +132,11 @@ module Make_IO (Flow : Mirage_flow.S) :
         | Error `Closed ->
           `Closed
         | Error other_error ->
-          raise (Failure (Format.asprintf "%a" Flow.pp_write_error other_error)))
+          raise
+            (Failure
+               (Format.asprintf "%a" Flow.Mirage.pp_write_error other_error)))
       (fun exn -> shutdown flow >>= fun () -> Lwt.fail exn)
 end
 
-module Server (Flow : Mirage_flow.S) = Gluten_lwt.Server (Make_IO (Flow))
-module Client (Flow : Mirage_flow.S) = Gluten_lwt.Client (Make_IO (Flow))
+module Server (F : Flow) = Gluten_lwt.Server (Make_IO (F))
+module Client (F : Flow) = Gluten_lwt.Client (Make_IO (F))

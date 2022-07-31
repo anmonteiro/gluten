@@ -30,8 +30,21 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *---------------------------------------------------------------------------*)
 
-module Server (Flow : Mirage_flow.S) :
-  Gluten_lwt.Server with type socket = Flow.flow and type addr = unit
+module type Flow = sig
+  module Mirage : Mirage_flow.S
 
-module Client (Flow : Mirage_flow.S) :
-  Gluten_lwt.Client with type socket = Flow.flow
+  type data = (Cstruct.t Mirage_flow.or_eof, Mirage.error) result
+  type t
+
+  val create : Mirage.flow -> t
+  val read : t -> int -> data Lwt.t
+  val writev : t -> Cstruct.t list -> (unit, Mirage.write_error) result Lwt.t
+  val close : t -> unit Lwt.t
+end
+
+module Make_flow (F : Mirage_flow.S) : Flow
+
+module Server (F : Flow) :
+  Gluten_lwt.Server with type socket = F.t and type addr = unit
+
+module Client (F : Flow) : Gluten_lwt.Client with type socket = F.t
