@@ -30,12 +30,19 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *---------------------------------------------------------------------------*)
 
-type 'a socket
+module Buffered_flow : sig
+  type 'a t = {
+    flow : 'a;
+    mutable buf : Cstruct.t;
+  }
 
-val create_socket : 'a -> 'a socket
+  val create : 'a -> 'a t
+end
 
 module Server (Flow : Mirage_flow.S) :
-  Gluten_lwt.Server with type socket = Flow.flow socket and type addr = unit
+  Gluten_lwt.Server
+    with type socket = Flow.flow Buffered_flow.t
+     and type addr = unit
 
 module Client (Flow : Mirage_flow.S) :
-  Gluten_lwt.Client with type socket = Flow.flow socket
+  Gluten_lwt.Client with type socket = Flow.flow Buffered_flow.t

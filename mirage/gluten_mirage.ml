@@ -32,24 +32,27 @@
 
 open Lwt.Infix
 
-type 'a socket = {
-  flow : 'a;
-  mutable buf : Cstruct.t;
-}
+module Buffered_flow = struct
+  type 'a t = {
+    flow : 'a;
+    mutable buf : Cstruct.t;
+  }
 
-let create_socket flow = { flow; buf = Cstruct.empty }
+  let create flow = { flow; buf = Cstruct.empty }
+end
 
 module Make_IO (Flow : Mirage_flow.S) :
-  Gluten_lwt.IO with type socket = Flow.flow socket and type addr = unit =
-struct
-  type nonrec socket = Flow.flow socket
+  Gluten_lwt.IO
+    with type socket = Flow.flow Buffered_flow.t
+     and type addr = unit = struct
+  type socket = Flow.flow Buffered_flow.t
   type addr = unit
 
-  let shutdown sock = Flow.close sock.flow
+  let shutdown (sock : _ Buffered_flow.t) = Flow.close sock.flow
   let shutdown_receive sock = Lwt.async (fun () -> shutdown sock)
   let close = shutdown
 
-  let buffered_read sock len =
+  let buffered_read (sock : _ Buffered_flow.t) len =
     let trunc buf =
       match Cstruct.length buf > len with
       | false ->
@@ -76,7 +79,7 @@ struct
       assert (Cstruct.is_empty sock.buf);
       match data with Ok (`Data buf) -> Ok (`Data (trunc buf)) | x -> x)
 
-  let read sock bigstring ~off ~len =
+  let read (sock : _ Buffered_flow.t) bigstring ~off ~len =
     Lwt.catch
       (fun () ->
         buffered_read sock len >|= function
@@ -90,7 +93,7 @@ struct
           failwith (Format.asprintf "%a" Flow.pp_error error))
       (fun exn -> shutdown sock >>= fun () -> Lwt.fail exn)
 
-  let writev sock iovecs =
+  let writev (sock : _ Buffered_flow.t) iovecs =
     let cstruct_iovecs =
       List.map
         (fun { Faraday.buffer; off; len } ->
