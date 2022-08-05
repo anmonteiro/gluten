@@ -1,8 +1,8 @@
-{ pkgs, release-mode ? false }:
+{ stdenv, lib, pkgs, release-mode ? false }:
 
 let
-  inherit (pkgs) stdenv lib;
-  glutenPkgs = pkgs.recurseIntoAttrs (import ./nix { inherit pkgs; doCheck = false; });
+  glutenPkgs = pkgs.recurseIntoAttrs
+    (pkgs.callPackage ./nix { doCheck = false; });
   glutenDrvs = lib.filterAttrs (_: value: lib.isDerivation value) glutenPkgs;
 
 in
