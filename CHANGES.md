@@ -11,6 +11,12 @@ Unreleased
   ([#30](https://github.com/anmonteiro/gluten/pull/30))
 - gluten-async: Add `tls-async` I/O support on the client
   ([#31](https://github.com/anmonteiro/gluten/pull/31))
+- gluten-mirage: Fix `read` and `writev`
+  ([#32](https://github.com/anmonteiro/gluten/pull/32)):
+    - `read` now respects the length parameter of the receiving buffer and
+      buffers extra bytes until the next time `read` is called
+    - `writev` now copies the underlying IOVecs, as `Flow.writev` takes
+      ownership of the buffers, which can't be reused
 
 0.2.1 2020-05-16
 --------------
