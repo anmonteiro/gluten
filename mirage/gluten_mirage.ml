@@ -48,11 +48,11 @@ module Make_IO (Flow : Mirage_flow.S) :
   type socket = Flow.flow Buffered_flow.t
   type addr = unit
 
-  let shutdown (sock : _ Buffered_flow.t) = Flow.close sock.flow
+  let shutdown (sock : socket) = Flow.close sock.flow
   let shutdown_receive sock = Lwt.async (fun () -> shutdown sock)
   let close = shutdown
 
-  let buffered_read (sock : _ Buffered_flow.t) len =
+  let buffered_read (sock : socket) len =
     let trunc buf =
       match Cstruct.length buf > len with
       | false ->
@@ -79,7 +79,7 @@ module Make_IO (Flow : Mirage_flow.S) :
       assert (Cstruct.is_empty sock.buf);
       match data with Ok (`Data buf) -> Ok (`Data (trunc buf)) | x -> x)
 
-  let read (sock : _ Buffered_flow.t) bigstring ~off ~len =
+  let read sock bigstring ~off ~len =
     Lwt.catch
       (fun () ->
         buffered_read sock len >|= function
@@ -93,20 +93,23 @@ module Make_IO (Flow : Mirage_flow.S) :
           failwith (Format.asprintf "%a" Flow.pp_error error))
       (fun exn -> shutdown sock >>= fun () -> Lwt.fail exn)
 
-  let writev (sock : _ Buffered_flow.t) iovecs =
-    let cstruct_iovecs =
-      List.map
-        (fun { Faraday.buffer; off; len } ->
-          let copy = Bigstringaf.copy ~off ~len buffer in
-          Cstruct.of_bigarray ~off:0 ~len copy)
-        iovecs
+  let writev (sock : socket) iovecs =
+    let data_len = List.fold_left (fun acc e -> acc + e.Faraday.len) 0 iovecs in
+    let data = Cstruct.create_unsafe data_len in
+    let copy_len =
+      List.fold_left
+        (fun dst_off { Faraday.buffer; off; len } ->
+          Bigstringaf.blit buffer ~src_off:off data.buffer ~dst_off ~len;
+          dst_off + len)
+        0 iovecs
     in
+    assert (data_len = copy_len);
     Lwt.catch
       (fun () ->
-        Flow.writev sock.flow cstruct_iovecs >|= fun x ->
+        Flow.write sock.flow data >|= fun x ->
         match x with
         | Ok () ->
-          `Ok (Cstruct.lenv cstruct_iovecs)
+          `Ok data_len
         | Error `Closed ->
           `Closed
         | Error other_error ->
