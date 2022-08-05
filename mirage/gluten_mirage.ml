@@ -97,15 +97,13 @@ module Make_IO (Flow : Mirage_flow.S) :
     let cstruct_iovecs =
       List.map
         (fun { Faraday.buffer; off; len } ->
-          Cstruct.of_bigarray ~off ~len buffer)
+          let copy = Bigstringaf.copy ~off ~len buffer in
+          Cstruct.of_bigarray ~off:0 ~len copy)
         iovecs
     in
-    let len = Cstruct.lenv cstruct_iovecs in
-    let data = Cstruct.create_unsafe len in
-    let _, _ = Cstruct.fillv ~src:cstruct_iovecs ~dst:data in
     Lwt.catch
       (fun () ->
-        Flow.write sock.flow data >|= fun x ->
+        Flow.writev sock.flow cstruct_iovecs >|= fun x ->
         match x with
         | Ok () ->
           `Ok (Cstruct.lenv cstruct_iovecs)
