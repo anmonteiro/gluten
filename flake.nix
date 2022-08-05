@@ -13,8 +13,7 @@
         });
       in
       rec {
-        packages = pkgs.callPackage ./nix { inherit pkgs; };
-        defaultPackage = packages.gluten;
-        devShell = pkgs.callPackage ./shell.nix { inherit pkgs; };
+        packages = (pkgs.callPackage ./nix { }) // { default = packages.gluten; };
+        devShells.default = pkgs.callPackage ./shell.nix { };
       });
 }

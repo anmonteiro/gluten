@@ -7,7 +7,7 @@ let
     inherit (lock.nodes.nixpkgs.locked) rev;
     # inherit (lock.nodes.nixpkgs.original) ref;
   };
-  pkgs = import "${src}/boot.nix" {
+  pkgs = import src {
     overlays = [
       (import src)
       (self: super: {
