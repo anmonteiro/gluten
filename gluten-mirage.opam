@@ -15,7 +15,7 @@ depends: [
   "gluten-lwt" {= version}
   "conduit-mirage" {>= "2.0.2"}
   "mirage-flow" {>= "2.0.0"}
-  "cstruct"
+  "cstruct" {>= "6.0.0"}
   "dune" {>= "1.0"}
   "lwt"
 ]
