@@ -1,20 +1,21 @@
-{ lib, stdenv, ocamlPackages, doCheck ? true }:
+{ nix-filter, lib, stdenv, ocamlPackages, doCheck ? true }:
 
 with ocamlPackages;
 
 let
-  genSrc = { dirs, files }: lib.filterGitSource {
-    src = ./..;
-    inherit dirs;
-    files = files ++ [ "dune-project" ];
-  };
+  genSrc = { dirs, files }:
+    with nix-filter; filter {
+      root = ./..;
+      include = [ "dune-project" ] ++ files ++ (builtins.map inDirectory dirs);
+    };
+
   buildGluten = args: buildDunePackage ({
     version = "0.1.0-dev";
     useDune2 = true;
     doCheck = false;
   } // args);
 
-  glutenPackages = rec {
+  glutenPkgs = rec {
     gluten = buildGluten {
       pname = "gluten";
       src = genSrc {
@@ -45,34 +46,52 @@ let
         lwt_ssl
       ];
     };
+
+    gluten-async = buildGluten {
+      pname = "gluten-async";
+      src = genSrc {
+        dirs = [ "async" ];
+        files = [ "gluten-async.opam" ];
+      };
+      propagatedBuildInputs = [
+        faraday-async
+        gluten
+        async_ssl
+      ];
+    };
+
+    gluten-mirage = buildGluten {
+      pname = "gluten-mirage";
+      src = genSrc {
+        dirs = [ "mirage" ];
+        files = [ "gluten-mirage.opam" ];
+      };
+      propagatedBuildInputs = [
+        faraday-lwt
+        gluten-lwt
+        conduit-mirage
+        mirage-flow
+        cstruct
+      ];
+    };
   };
 in
-glutenPackages // (if (lib.versionOlder "4.08" ocaml.version) then {
-  gluten-async = buildGluten {
-    pname = "gluten-async";
+
+with glutenPkgs;
+
+glutenPkgs // (if lib.versionOlder "5.0" ocaml.version then {
+  gluten-eio = buildGluten {
+    pname = "gluten-eio";
     src = genSrc {
-      dirs = [ "async" ];
-      files = [ "gluten-async.opam" ];
+      dirs = [ "eio" ];
+      files = [ "gluten-eio.opam" ];
     };
-    propagatedBuildInputs = with glutenPackages; [
-      faraday-async
+
+    propagatedBuildInputs = [
       gluten
-      async_ssl
+      eio
+      eio_main
     ];
   };
 
-  gluten-mirage = buildGluten {
-    pname = "gluten-mirage";
-    src = genSrc {
-      dirs = [ "mirage" ];
-      files = [ "gluten-mirage.opam" ];
-    };
-    propagatedBuildInputs = with glutenPackages; [
-      faraday-lwt
-      gluten-lwt
-      conduit-mirage
-      mirage-flow
-      cstruct
-    ];
-  };
 } else { })

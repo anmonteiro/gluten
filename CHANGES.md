@@ -1,6 +1,10 @@
 Unreleased
 --------------
 
+- gluten-eio: Add `gluten-eio` package, a gluten backend for
+  [eio](https://github.com/ocaml-multicore/eio)
+  ([#35](https://github.com/anmonteiro/gluten/pull/35))
+
 0.3.0 2022-08-08
 --------------
 

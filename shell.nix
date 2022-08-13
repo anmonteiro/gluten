@@ -1,29 +1,21 @@
-{ stdenv, lib, pkgs, release-mode ? false }:
+{ mkShell
+, cacert
+, curl
+, ocamlPackages
+, git
+, stdenv
+, lib
+, packages
+, release-mode ? false
+}:
 
-let
-  glutenPkgs = pkgs.recurseIntoAttrs
-    (pkgs.callPackage ./nix { doCheck = false; });
-  glutenDrvs = lib.filterAttrs (_: value: lib.isDerivation value) glutenPkgs;
-
-in
-with pkgs;
-
-(mkShell {
-  inputsFrom = lib.attrValues glutenDrvs;
+mkShell {
+  inputsFrom = lib.attrValues (lib.filterAttrs (_: value: lib.isDerivation value) packages);
   buildInputs =
     (if release-mode then [
       cacert
       curl
       ocamlPackages.dune-release
       git
-      opam
-    ] else [ ])
-    ++ (with ocamlPackages; [ merlin utop ocamlformat ]);
-}).overrideAttrs (o: {
-  propagatedBuildInputs = lib.filter
-    (drv:
-      !(lib.hasAttr "pname" drv) ||
-      drv.pname == null ||
-      !(lib.any (name: name == drv.pname) (lib.attrNames glutenDrvs)))
-    o.propagatedBuildInputs;
-})
+    ] else [ ]) ++ (with ocamlPackages; [ merlin utop ocamlformat ]);
+}
