@@ -31,47 +31,34 @@
  *---------------------------------------------------------------------------*)
 
 module Server : sig
-  type socket = Eio.Flow.two_way
-  type addr = Eio.Net.Sockaddr.stream
+  module type S = Gluten_eio_intf.Server
 
-  val create_connection_handler
-    :  read_buffer_size:int
-    -> domain_mgr:Eio.Domain_manager.t
-    -> protocol:'t Gluten.runtime
-    -> 't
-    -> addr
-    -> Eio.Flow.two_way
-    -> unit
+  include Gluten_eio_intf.Server with type socket = Eio.Flow.two_way
 
-  val create_upgradable_connection_handler
-    :  read_buffer_size:int
-    -> protocol:'t Gluten.runtime
-    -> create_protocol:(('reqd -> unit) -> 't)
-    -> request_handler:(addr -> 'reqd Gluten.Server.request_handler)
-    -> domain_mgr:Eio.Domain_manager.t
-    -> addr
-    -> Eio.Flow.two_way
-    -> unit
+  module SSL : sig
+    include Gluten_eio_intf.Server with type socket = Ssl_io.descriptor
+
+    val create_default
+      :  ?alpn_protocols:string list
+      -> certfile:string
+      -> keyfile:string
+      -> Eio.Net.Sockaddr.stream
+      -> Eio_unix.socket
+      -> socket
+  end
 end
 
 module Client : sig
-  type socket = Eio.Flow.two_way
+  module type S = Gluten_eio_intf.Client
 
-  type t =
-    { connection : Gluten.Client.t
-    ; socket : socket
-    }
+  include Gluten_eio_intf.Client with type socket = Eio.Flow.two_way
 
-  val create
-    :  domain_mgr:Eio.Domain_manager.t
-    -> read_buffer_size:int
-    -> protocol:'t Gluten.runtime
-    -> 't
-    -> Server.socket
-    -> t
+  module SSL : sig
+    include Gluten_eio_intf.Client with type socket = Ssl_io.descriptor
 
-  val upgrade : t -> Gluten.impl -> unit
-  val shutdown : t -> unit
-  val is_closed : t -> bool
-  val socket : t -> socket
+    val create_default
+      :  ?alpn_protocols:string list
+      -> Eio_unix.socket
+      -> socket
+  end
 end
