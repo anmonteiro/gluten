@@ -38,12 +38,11 @@ module IO_loop = struct
         (module Gluten_eio_intf.IO with type socket = fd)
         -> (module Gluten.RUNTIME with type t = t)
         -> t
-        -> domain_mgr:Eio.Domain_manager.t (* -> sw:Eio.Switch.t *)
         -> read_buffer_size:int
         -> fd
         -> unit
     =
-   fun (module Io) (module Runtime) t ~domain_mgr:_ ~read_buffer_size socket ->
+   fun (module Io) (module Runtime) t ~read_buffer_size socket ->
     let read_buffer = Buffer.create read_buffer_size in
     let rec read_loop () =
       let rec read_loop_step () =
@@ -83,11 +82,6 @@ module IO_loop = struct
       | () -> ()
       | exception exn -> Runtime.report_exn t exn
     in
-    (* let read_loop_domain () = Eio.Domain_manager.run domain_mgr read_loop in *)
-    (* let write_loop_domain () = Eio.Domain_manager.run domain_mgr write_loop in *)
-    (* Eio.Fiber.both read_loop_domain write_loop_domain; *)
-    (* TODO(anmonteiro): figure out how to create a different domain for reader
-       / writer *)
     Eio.Fiber.both read_loop write_loop;
     Io.close socket
 end
@@ -95,8 +89,9 @@ end
 module Io : Gluten_eio_intf.IO with type socket = Eio.Flow.two_way = struct
   type socket = Eio.Flow.two_way
 
-  let close _socket = ()
-  (* Eio.Flow.shutdown socket `All *)
+  let close socket =
+    try Eio.Flow.shutdown socket `All with
+    | Unix.Unix_error (ENOTCONN, _, _) -> ()
 
   let read socket buf ~off ~len =
     match Eio.Flow.read socket (Cstruct.of_bigarray buf ~off ~len) with
@@ -116,8 +111,7 @@ module Io : Gluten_eio_intf.IO with type socket = Eio.Flow.two_way = struct
     | () -> `Ok lenv
     | exception _ -> `Closed
 
-  let shutdown_receive _socket = ()
-  (* Eio.Flow.shutdown socket `Receive *)
+  let shutdown_receive socket = Eio.Flow.shutdown socket `Receive
 end
 
 module MakeServer (Io : Gluten_eio_intf.IO) = struct
@@ -128,7 +122,6 @@ module MakeServer (Io : Gluten_eio_intf.IO) = struct
 
   let create_connection_handler
       ~read_buffer_size
-      ~domain_mgr
       ~protocol
       connection
       _client_addr
@@ -139,7 +132,6 @@ module MakeServer (Io : Gluten_eio_intf.IO) = struct
       (module Io)
       (module Server)
       connection
-      ~domain_mgr
       ~read_buffer_size
       socket
 
@@ -148,7 +140,6 @@ module MakeServer (Io : Gluten_eio_intf.IO) = struct
       ~protocol
       ~create_protocol
       ~request_handler
-      ~domain_mgr
       (client_addr : addr)
       socket
     =
@@ -162,7 +153,6 @@ module MakeServer (Io : Gluten_eio_intf.IO) = struct
       (module Io)
       (module Server)
       connection
-      ~domain_mgr
       ~read_buffer_size
       socket
 end
@@ -193,16 +183,14 @@ module MakeClient (Io : Gluten_eio_intf.IO) = struct
     ; socket : socket
     }
 
-  let create (eio_env : Eio.Stdenv.t) ~sw ~read_buffer_size ~protocol t socket =
+  let create ~sw ~read_buffer_size ~protocol t socket =
     let connection = Client_connection.create ~protocol t in
-    let domain_mgr = Eio.Stdenv.domain_mgr eio_env in
     Eio.Fiber.fork ~sw (fun () ->
         IO_loop.start
           (module Io)
           (module Client_connection)
-          connection
-          ~domain_mgr
           ~read_buffer_size
+          connection
           socket);
     { connection; socket }
 
