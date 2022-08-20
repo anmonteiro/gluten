@@ -4,17 +4,11 @@
  (libraries
   gluten
   eio_main
-  ; faraday-lwt-unix
-  ; gluten-lwt
-  ; lwt.unix
+  bigstringaf
+  eio-ssl
   ; (select
   ; ssl_io.ml
   ; from
-  ; (lwt_ssl -> ssl_io.real.ml)
+  ; (eio-ssl -> ssl_io.real.ml)
   ; (-> ssl_io.dummy.ml))
-  ; (select
-  ; tls_io.ml
-  ; from
-  ; (tls.lwt -> tls_io.real.ml)
-  ; (-> tls_io.dummy.ml))
   ))

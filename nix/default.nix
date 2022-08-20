@@ -91,6 +91,7 @@ glutenPkgs // (if lib.versionOlder "5.0" ocaml.version then {
       gluten
       eio
       eio_main
+      eio-ssl
     ];
   };
 

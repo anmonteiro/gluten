@@ -30,35 +30,62 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *---------------------------------------------------------------------------*)
 
-module Server : sig
-  module type S = Gluten_eio_intf.Server
+module type IO = sig
+  type socket
 
-  include Gluten_eio_intf.Server with type socket = Eio.Flow.two_way
+  val read
+    :  socket
+    -> Bigstringaf.t
+    -> off:int
+    -> len:int
+    -> [ `Eof | `Ok of int ]
+  (** The region [(off, off + len)] is where read bytes can be written to *)
 
-  module SSL : sig
-    include Gluten_eio_intf.Server with type socket = Ssl_io.descriptor
+  val writev
+    :  socket
+    -> Bigstringaf.t Faraday.iovec list
+    -> [ `Closed | `Ok of int ]
 
-    val create_default
-      :  ?alpn_protocols:string list
-      -> certfile:string
-      -> keyfile:string
-      -> Eio.Net.Sockaddr.stream
-      -> Eio_unix.socket
-      -> socket
-  end
+  val shutdown_receive : socket -> unit
+  val close : socket -> unit
 end
 
-module Client : sig
-  module type S = Gluten_eio_intf.Client
+module type Server = sig
+  type socket
 
-  include Gluten_eio_intf.Client with type socket = Eio.Flow.two_way
+  val create_connection_handler
+    :  read_buffer_size:int
+    -> protocol:'t Gluten.runtime
+    -> 't
+    -> Eio.Net.Sockaddr.stream
+    -> socket
+    -> unit
 
-  module SSL : sig
-    include Gluten_eio_intf.Client with type socket = Ssl_io.descriptor
+  val create_upgradable_connection_handler
+    :  read_buffer_size:int
+    -> protocol:'t Gluten.runtime
+    -> create_protocol:(('reqd -> unit) -> 't)
+    -> request_handler:
+         (Eio.Net.Sockaddr.stream -> 'reqd Gluten.Server.request_handler)
+    -> Eio.Net.Sockaddr.stream
+    -> socket
+    -> unit
+end
 
-    val create_default
-      :  ?alpn_protocols:string list
-      -> Eio_unix.socket
-      -> socket
-  end
+module type Client = sig
+  type socket
+  type t
+
+  val create
+    :  sw:Eio.Switch.t
+    -> read_buffer_size:int
+    -> protocol:'t Gluten.runtime
+    -> 't
+    -> socket
+    -> t
+
+  val upgrade : t -> Gluten.impl -> unit
+  val shutdown : t -> unit
+  val is_closed : t -> bool
+  val socket : t -> socket
 end

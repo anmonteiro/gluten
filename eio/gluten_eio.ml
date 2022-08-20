@@ -34,29 +34,22 @@ module Buffer = Gluten.Buffer
 
 module IO_loop = struct
   let start
-      : type t.
-        (module Gluten.RUNTIME with type t = t)
+      : type t fd.
+        (module Gluten_eio_intf.IO with type socket = fd)
+        -> (module Gluten.RUNTIME with type t = t)
         -> t
-        -> domain_mgr:Eio.Domain_manager.t
         -> read_buffer_size:int
-        -> Eio.Flow.two_way
+        -> fd
         -> unit
     =
-   fun (module Runtime) t ~domain_mgr ~read_buffer_size socket ->
+   fun (module Io) (module Runtime) t ~read_buffer_size socket ->
     let read_buffer = Buffer.create read_buffer_size in
     let rec read_loop () =
       let rec read_loop_step () =
         match Runtime.next_read_operation t with
         | `Read ->
           Buffer.put
-            ~f:(fun buf ~off ~len k ->
-              k
-              @@
-              match
-                Eio.Flow.read socket (Cstruct.of_bigarray buf ~off ~len)
-              with
-              | n -> `Ok n
-              | exception End_of_file -> `Eof)
+            ~f:(fun buf ~off ~len k -> k (Io.read socket buf ~off ~len))
             read_buffer
             (function
               | `Eof ->
@@ -64,13 +57,13 @@ module IO_loop = struct
                     Runtime.read_eof t bigstring ~off ~len)
                 |> ignore;
                 read_loop_step ()
-              | `Ok _ ->
+              | `Ok _n ->
                 Buffer.get read_buffer ~f:(fun bigstring ~off ~len ->
                     Runtime.read t bigstring ~off ~len)
                 |> ignore;
                 read_loop_step ())
         | `Yield -> Runtime.yield_reader t read_loop
-        | `Close -> Eio.Flow.shutdown socket `Receive
+        | `Close -> Io.shutdown_receive socket
       in
       match read_loop_step () with
       | () -> ()
@@ -80,18 +73,7 @@ module IO_loop = struct
       let rec write_loop_step () =
         match Runtime.next_write_operation t with
         | `Write io_vectors ->
-          let lenv, cstructs =
-            List.fold_left_map
-              (fun acc { Faraday.buffer; off; len } ->
-                acc + len, Cstruct.of_bigarray buffer ~off ~len)
-              0
-              io_vectors
-          in
-          let iovec_source = Eio.Flow.cstruct_source cstructs in
-
-          (match Eio.Flow.copy iovec_source socket with
-          | () -> Runtime.report_write_result t (`Ok lenv)
-          | exception _ -> Runtime.report_write_result t `Closed);
+          Runtime.report_write_result t (Io.writev socket io_vectors);
           write_loop_step ()
         | `Yield -> Runtime.yield_writer t write_loop
         | `Close _ -> ()
@@ -100,21 +82,46 @@ module IO_loop = struct
       | () -> ()
       | exception exn -> Runtime.report_exn t exn
     in
-    let read_loop_domain () = Eio.Domain_manager.run domain_mgr read_loop in
-    let write_loop_domain () = Eio.Domain_manager.run domain_mgr write_loop in
-    Eio.Fiber.both read_loop_domain write_loop_domain;
-    Eio.Flow.shutdown socket `All
+    Eio.Fiber.both read_loop write_loop;
+    Io.close socket
 end
 
-module Server = struct
+module Io : Gluten_eio_intf.IO with type socket = Eio.Flow.two_way = struct
+  type socket = Eio.Flow.two_way
+
+  let close socket =
+    try Eio.Flow.shutdown socket `All with
+    | Unix.Unix_error (ENOTCONN, _, _) -> ()
+
+  let read socket buf ~off ~len =
+    match Eio.Flow.read socket (Cstruct.of_bigarray buf ~off ~len) with
+    | n -> `Ok n
+    | exception End_of_file -> `Eof
+
+  let writev socket iovecs =
+    let lenv, cstructs =
+      List.fold_left_map
+        (fun acc { Faraday.buffer; off; len } ->
+          acc + len, Cstruct.of_bigarray buffer ~off ~len)
+        0
+        iovecs
+    in
+    let iovec_source = Eio.Flow.cstruct_source cstructs in
+    match Eio.Flow.copy iovec_source socket with
+    | () -> `Ok lenv
+    | exception _ -> `Closed
+
+  let shutdown_receive socket = Eio.Flow.shutdown socket `Receive
+end
+
+module MakeServer (Io : Gluten_eio_intf.IO) = struct
   module Server = Gluten.Server
 
-  type socket = Eio.Flow.two_way
+  type socket = Io.socket
   type addr = Eio.Net.Sockaddr.stream
 
   let create_connection_handler
       ~read_buffer_size
-      ~domain_mgr
       ~protocol
       connection
       _client_addr
@@ -122,9 +129,9 @@ module Server = struct
     =
     let connection = Server.create ~protocol connection in
     IO_loop.start
+      (module Io)
       (module Server)
       connection
-      ~domain_mgr
       ~read_buffer_size
       socket
 
@@ -133,7 +140,6 @@ module Server = struct
       ~protocol
       ~create_protocol
       ~request_handler
-      ~domain_mgr
       (client_addr : addr)
       socket
     =
@@ -144,34 +150,48 @@ module Server = struct
         (request_handler client_addr)
     in
     IO_loop.start
+      (module Io)
       (module Server)
       connection
-      ~domain_mgr
       ~read_buffer_size
       socket
 end
 
-module Client = struct
+module Server = struct
+  module type S = Gluten_eio_intf.Server
+
+  include MakeServer (Io)
+
+  module SSL = struct
+    include MakeServer (Ssl_io.Io)
+
+    let create_default ?alpn_protocols ~certfile ~keyfile =
+      let make_ssl_server =
+        Ssl_io.make_server ?alpn_protocols ~certfile ~keyfile
+      in
+      fun _client_addr socket -> make_ssl_server socket
+  end
+end
+
+module MakeClient (Io : Gluten_eio_intf.IO) = struct
   module Client_connection = Gluten.Client
 
-  type socket = Eio.Flow.two_way
+  type socket = Io.socket
 
   type t =
     { connection : Client_connection.t
     ; socket : socket
     }
 
-  let create ~domain_mgr ~read_buffer_size ~protocol t socket =
+  let create ~sw ~read_buffer_size ~protocol t socket =
     let connection = Client_connection.create ~protocol t in
-    let _domain =
-      Domain.spawn (fun () ->
-          IO_loop.start
-            (module Client_connection)
-            connection
-            ~domain_mgr
-            ~read_buffer_size
-            socket)
-    in
+    Eio.Fiber.fork ~sw (fun () ->
+        IO_loop.start
+          (module Io)
+          (module Client_connection)
+          ~read_buffer_size
+          connection
+          socket);
     { connection; socket }
 
   let upgrade t protocol =
@@ -179,8 +199,21 @@ module Client = struct
 
   let shutdown t =
     Client_connection.shutdown t.connection;
-    Eio.Flow.shutdown t.socket `All
+    Io.close t.socket
 
   let is_closed t = Client_connection.is_closed t.connection
   let socket t = t.socket
+end
+
+module Client = struct
+  module type S = Gluten_eio_intf.Client
+
+  include MakeClient (Io)
+
+  module SSL = struct
+    include MakeClient (Ssl_io.Io)
+
+    let create_default ?alpn_protocols socket =
+      Ssl_io.make_default_client ?alpn_protocols socket
+  end
 end
