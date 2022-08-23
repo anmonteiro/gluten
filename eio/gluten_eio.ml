@@ -62,7 +62,11 @@ module IO_loop = struct
                     Runtime.read t bigstring ~off ~len)
                 |> ignore;
                 read_loop_step ())
-        | `Yield -> Runtime.yield_reader t read_loop
+        | `Yield ->
+          let p, u = Eio.Promise.create () in
+          Runtime.yield_reader t (Eio.Promise.resolve u);
+          Eio.Promise.await p;
+          read_loop ()
         | `Close -> Io.shutdown_receive socket
       in
       match read_loop_step () with
@@ -73,9 +77,14 @@ module IO_loop = struct
       let rec write_loop_step () =
         match Runtime.next_write_operation t with
         | `Write io_vectors ->
-          Runtime.report_write_result t (Io.writev socket io_vectors);
+          let write_result = Io.writev socket io_vectors in
+          Runtime.report_write_result t write_result;
           write_loop_step ()
-        | `Yield -> Runtime.yield_writer t write_loop
+        | `Yield ->
+          let p, u = Eio.Promise.create () in
+          Runtime.yield_writer t (Eio.Promise.resolve u);
+          Eio.Promise.await p;
+          write_loop ()
         | `Close _ -> ()
       in
       match write_loop_step () with

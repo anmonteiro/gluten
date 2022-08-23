@@ -51,7 +51,7 @@ end
 module Client : sig
   module type S = Gluten_eio_intf.Client
 
-  include Gluten_eio_intf.Client with type socket = Eio.Flow.two_way
+  include Gluten_eio_intf.Client with type socket = Eio.Net.stream_socket
 
   module SSL : sig
     include Gluten_eio_intf.Client with type socket = Ssl_io.descriptor
