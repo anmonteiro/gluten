@@ -98,9 +98,11 @@ end
 module Io : Gluten_eio_intf.IO with type socket = Eio.Flow.two_way = struct
   type socket = Eio.Flow.two_way
 
-  let close socket =
-    try Eio.Flow.shutdown socket `All with
+  let shutdown socket cmd =
+    try Eio.Flow.shutdown socket cmd with
     | Unix.Unix_error (ENOTCONN, _, _) -> ()
+
+  let close socket = shutdown socket `All
 
   let read socket buf ~off ~len =
     match Eio.Flow.read socket (Cstruct.of_bigarray buf ~off ~len) with
@@ -120,7 +122,7 @@ module Io : Gluten_eio_intf.IO with type socket = Eio.Flow.two_way = struct
     | () -> `Ok lenv
     | exception _ -> `Closed
 
-  let shutdown_receive socket = Eio.Flow.shutdown socket `Receive
+  let shutdown_receive socket = shutdown socket `Receive
 end
 
 module MakeServer (Io : Gluten_eio_intf.IO) = struct

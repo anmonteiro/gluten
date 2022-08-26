@@ -43,7 +43,7 @@ module Server : sig
       -> certfile:string
       -> keyfile:string
       -> Eio.Net.Sockaddr.stream
-      -> Eio_unix.socket
+      -> Eio.Net.stream_socket
       -> socket
   end
 end
@@ -58,7 +58,7 @@ module Client : sig
 
     val create_default
       :  ?alpn_protocols:string list
-      -> Eio_unix.socket
+      -> Eio.Net.stream_socket
       -> socket
   end
 end
