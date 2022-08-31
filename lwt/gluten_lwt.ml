@@ -60,17 +60,14 @@ module IO_loop = struct
             read_buffer
             (function
               | `Eof ->
-                Buffer.get read_buffer ~f:(fun bigstring ~off ~len ->
-                    Runtime.read_eof t bigstring ~off ~len)
-                |> ignore;
+                let (_ : int) =
+                  Buffer.get read_buffer ~f:(Runtime.read_eof t)
+                in
                 read_loop_step ()
               | `Ok _ ->
-                Buffer.get read_buffer ~f:(fun bigstring ~off ~len ->
-                    Runtime.read t bigstring ~off ~len)
-                |> ignore;
+                let (_ : int) = Buffer.get read_buffer ~f:(Runtime.read t) in
                 read_loop_step ())
-        | `Yield ->
-          Runtime.yield_reader t read_loop
+        | `Yield -> Runtime.yield_reader t read_loop
         | `Close ->
           Lwt.wakeup_later notify_read_loop_exited ();
           Io.shutdown_receive socket
@@ -111,11 +108,14 @@ module Server (Io : IO) = struct
   module Server = Gluten.Server
 
   type socket = Io.socket
-
   type addr = Io.addr
 
   let create_connection_handler
-      ~read_buffer_size ~protocol connection _client_addr socket
+      ~read_buffer_size
+      ~protocol
+      connection
+      _client_addr
+      socket
     =
     let connection = Server.create ~protocol connection in
     IO_loop.start
@@ -176,6 +176,5 @@ module Client (Io : IO) = struct
     Io.close t.socket
 
   let is_closed t = Client_connection.is_closed t.connection
-
   let socket t = t.socket
 end

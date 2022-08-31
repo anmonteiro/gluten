@@ -49,18 +49,18 @@ module IO_loop = struct
       let rec read_loop_step () =
         match Runtime.next_read_operation t with
         | `Read ->
+          let p, u = Promise.create () in
           Buffer.put
             ~f:(fun buf ~off ~len k -> k (Io.read socket buf ~off ~len))
             read_buffer
-            (function
-              | `Eof ->
-                Buffer.get read_buffer ~f:(Runtime.read_eof t) |> ignore;
-                read_loop_step ()
-              | `Ok _n ->
-                Buffer.get read_buffer ~f:(fun bigstring ~off ~len ->
-                    Runtime.read t bigstring ~off ~len)
-                |> ignore;
-                read_loop_step ())
+            (Promise.resolve u);
+          (match Promise.await p with
+          | `Eof ->
+            let (_ : int) = Buffer.get read_buffer ~f:(Runtime.read_eof t) in
+            read_loop_step ()
+          | `Ok _n ->
+            let (_ : int) = Buffer.get read_buffer ~f:(Runtime.read t) in
+            read_loop_step ())
         | `Yield ->
           let p, u = Promise.create () in
           Runtime.yield_reader t (Promise.resolve u);
