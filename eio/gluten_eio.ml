@@ -30,6 +30,7 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *---------------------------------------------------------------------------*)
 
+open Eio.Std
 module Buffer = Gluten.Buffer
 
 module IO_loop = struct
@@ -53,9 +54,7 @@ module IO_loop = struct
             read_buffer
             (function
               | `Eof ->
-                Buffer.get read_buffer ~f:(fun bigstring ~off ~len ->
-                    Runtime.read_eof t bigstring ~off ~len)
-                |> ignore;
+                Buffer.get read_buffer ~f:(Runtime.read_eof t) |> ignore;
                 read_loop_step ()
               | `Ok _n ->
                 Buffer.get read_buffer ~f:(fun bigstring ~off ~len ->
@@ -63,9 +62,9 @@ module IO_loop = struct
                 |> ignore;
                 read_loop_step ())
         | `Yield ->
-          let p, u = Eio.Promise.create () in
-          Runtime.yield_reader t (Eio.Promise.resolve u);
-          Eio.Promise.await p;
+          let p, u = Promise.create () in
+          Runtime.yield_reader t (Promise.resolve u);
+          Promise.await p;
           read_loop ()
         | `Close -> Io.shutdown_receive socket
       in
@@ -81,9 +80,9 @@ module IO_loop = struct
           Runtime.report_write_result t write_result;
           write_loop_step ()
         | `Yield ->
-          let p, u = Eio.Promise.create () in
-          Runtime.yield_writer t (Eio.Promise.resolve u);
-          Eio.Promise.await p;
+          let p, u = Promise.create () in
+          Runtime.yield_writer t (Promise.resolve u);
+          Promise.await p;
           write_loop ()
         | `Close _ -> ()
       in
@@ -91,7 +90,7 @@ module IO_loop = struct
       | () -> ()
       | exception exn -> Runtime.report_exn t exn
     in
-    Eio.Fiber.both read_loop write_loop;
+    Fiber.both read_loop write_loop;
     Io.close socket
 end
 
@@ -196,7 +195,7 @@ module MakeClient (Io : Gluten_eio_intf.IO) = struct
 
   let create ~sw ~read_buffer_size ~protocol t socket =
     let connection = Client_connection.create ~protocol t in
-    Eio.Fiber.fork ~sw (fun () ->
+    Fiber.fork ~sw (fun () ->
         IO_loop.start
           (module Io)
           (module Client_connection)

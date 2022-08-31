@@ -42,28 +42,26 @@ module Io : Gluten_eio_intf.IO with type socket = descriptor = struct
     | exn -> raise exn
 
   let read ssl bigstring ~off ~len =
-    try
-      match Eio_ssl.read ssl bigstring ~off ~len with 0 -> `Eof | n -> `Ok n
-    with
-    | Unix.Unix_error (Unix.EBADF, _, _) -> `Eof
-    | exn ->
+    match Eio_ssl.read ssl bigstring ~off ~len with
+    | 0 -> `Eof
+    | n -> `Ok n
+    | exception Unix.Unix_error (Unix.EBADF, _, _) -> `Eof
+    | exception exn ->
       close ssl;
       raise exn
 
   let writev ssl iovecs =
-    try
-      let written =
-        List.fold_left
-          (fun acc { Faraday.buffer; off; len } ->
-            let written = Eio_ssl.write ssl buffer ~off ~len in
-            acc + written)
-          0
-          iovecs
-      in
-      `Ok written
+    match
+      List.fold_left
+        (fun acc { Faraday.buffer; off; len } ->
+          let written = Eio_ssl.write ssl buffer ~off ~len in
+          acc + written)
+        0
+        iovecs
     with
-    | Unix.Unix_error (Unix.EBADF, "check_descriptor", _) -> `Closed
-    | exn -> raise exn
+    | written -> `Ok written
+    | exception Unix.Unix_error (Unix.EBADF, "check_descriptor", _) -> `Closed
+    | exception exn -> raise exn
 
   (* From RFC8446§6.1:
    *   The client and the server must share knowledge that the connection is
