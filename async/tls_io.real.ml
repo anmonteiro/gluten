@@ -37,15 +37,11 @@ module IOVec = Core_unix.IOVec
 (* This is now a tuple instead of a nominative record so we can provide a public
    interface that can be shared with ssl_io.dummy.ml. reader, writer, closed
    ivar *)
-type descriptor = Reader.t * Writer.t * unit Deferred.t
+type 'a descriptor = Reader.t * Writer.t * unit Deferred.t
+  constraint 'a = [< Socket.Address.t ]
 
-module Io :
-  Gluten_async_intf.IO
-    with type socket = descriptor
-     and type addr = Socket.Address.Inet.t = struct
-  type socket = descriptor
-
-  type addr = Socket.Address.Inet.t
+module Io : Gluten_async_intf.IO with type 'a socket = 'a descriptor = struct
+  type 'a socket = 'a descriptor
 
   let read (reader, _, _) bigstring ~off ~len =
     let bigsubstr = Bigsubstring.create ~pos:off ~len bigstring in
@@ -53,8 +49,7 @@ module Io :
 
   let writev (_, writer, _) iovecs =
     match Writer.is_closed writer with
-    | true ->
-      Deferred.return `Closed
+    | true -> Deferred.return `Closed
     | false ->
       let iovecs_q = Queue.create ~capacity:(List.length iovecs) () in
       let len =
@@ -84,7 +79,13 @@ module Io :
     closed
 end
 
-let connect ~config ~socket ~where_to_connect ~host =
+let connect
+    :  config:Tls.Config.client
+    -> socket:([ `Unconnected ], ([< Socket.Address.t ] as 'a)) Socket.t
+    -> where_to_connect:'a Tcp.Where_to_connect.t
+    -> host:[ `host ] Domain_name.t option -> 'a descriptor Deferred.t
+  =
+ fun ~config ~socket ~where_to_connect ~host ->
   Tls_async.connect ~socket config where_to_connect ~host >>= fun res ->
   match res with
   | Error e ->
@@ -99,9 +100,12 @@ let connect ~config ~socket ~where_to_connect ~host =
 
 let null_auth ?ip:_ ~host:_ _ = Ok None
 
-let make_default_client ?alpn_protocols ?host socket where_to_connect
-    : descriptor Deferred.t
+let make_default_client
+    :  ?alpn_protocols:string list -> ?host:[ `host ] Domain_name.t
+    -> ([ `Unconnected ], ([< Socket.Address.t ] as 'b)) Socket.t
+    -> 'b Tcp.Where_to_connect.t -> 'b descriptor Deferred.t
   =
+ fun ?alpn_protocols ?host socket where_to_connect ->
   let config = Tls.Config.client ?alpn_protocols ~authenticator:null_auth () in
   connect ~config ~socket ~where_to_connect ~host
 
@@ -115,7 +119,10 @@ let make_default_client ?alpn_protocols ?host socket where_to_connect
    "Gluten_async.TLS.make_server: unimplemented" () *)
 
 let[@ocaml.warning "-21"] make_server
-    ?alpn_protocols:_ ~certfile:_ ~keyfile:_ _socket
+    ?alpn_protocols:_
+    ~certfile:_
+    ~keyfile:_
+    _socket
   =
   failwith "Tls_async Server not implemented";
   fun _socket -> Core.failwith "Tls_async Server not implemented"

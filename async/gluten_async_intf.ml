@@ -33,12 +33,10 @@
 open Async
 
 module type IO = sig
-  type socket
-
-  type addr
+  type 'a socket constraint 'a = [< Socket.Address.t ]
 
   val read
-    :  socket
+    :  _ socket
     -> Bigstringaf.t
     -> off:int
     -> len:int
@@ -46,53 +44,47 @@ module type IO = sig
   (** The region [(off, off + len)] is where read bytes can be written to *)
 
   val writev
-    :  socket
+    :  _ socket
     -> Faraday.bigstring Faraday.iovec list
     -> [ `Closed | `Ok of int ] Deferred.t
 
-  val shutdown_receive : socket -> unit
-
-  val close : socket -> unit Deferred.t
+  val shutdown_receive : _ socket -> unit
+  val close : _ socket -> unit Deferred.t
 end
 
 module type Server = sig
-  type socket
-
-  type addr
+  type 'a socket constraint 'a = [< Socket.Address.t ]
 
   val create_upgradable_connection_handler
     :  read_buffer_size:int
     -> protocol:'t Gluten.runtime
     -> create_protocol:(('reqd -> unit) -> 't)
-    -> request_handler:(addr -> 'reqd Gluten.Server.request_handler)
-    -> addr
-    -> socket
+    -> request_handler:('a -> 'reqd Gluten.Server.request_handler)
+    -> 'a
+    -> 'a socket
     -> unit Deferred.t
 
   val create_connection_handler
     :  read_buffer_size:int
     -> protocol:'t Gluten.runtime
     -> 't
-    -> addr
-    -> socket
+    -> 'a
+    -> 'a socket
     -> unit Deferred.t
 end
 
 module type Client = sig
-  type t
-
-  type socket
+  type 'a t constraint 'a = [< Socket.Address.t ]
+  type 'a socket constraint 'a = [< Socket.Address.t ]
 
   val create
     :  read_buffer_size:int
     -> protocol:'t Gluten.runtime
     -> 't
-    -> socket
-    -> t Deferred.t
+    -> 'a socket
+    -> 'a t Deferred.t
 
-  val upgrade : t -> Gluten.impl -> unit
-
-  val shutdown : t -> unit Deferred.t
-
-  val is_closed : t -> bool
+  val upgrade : _ t -> Gluten.impl -> unit
+  val shutdown : _ t -> unit Deferred.t
+  val is_closed : _ t -> bool
 end
