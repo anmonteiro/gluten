@@ -38,15 +38,10 @@ module Unix = Core_unix
 (* This is now a tuple instead of a nominative record so we can provide a public
    interface that can be shared with ssl_io.dummy.ml. reader, writer, closed
    ivar *)
-type descriptor = Reader.t * Writer.t * unit Deferred.t
+type _ descriptor = Reader.t * Writer.t * unit Deferred.t
 
-module Io :
-  Gluten_async_intf.IO
-    with type socket = descriptor
-     and type addr = Socket.Address.Inet.t = struct
-  type socket = descriptor
-
-  type addr = Socket.Address.Inet.t
+module Io : Gluten_async_intf.IO with type 'a socket = 'a descriptor = struct
+  type 'a socket = 'a descriptor constraint 'a = [< Socket.Address.t ]
 
   let read (reader, _, _) bigstring ~off ~len =
     let bigsubstr = Bigsubstring.create ~pos:off ~len bigstring in
@@ -54,8 +49,7 @@ module Io :
 
   let writev (_, writer, _) iovecs =
     match Writer.is_closed writer with
-    | true ->
-      Deferred.return `Closed
+    | true -> Deferred.return `Closed
     | false ->
       let iovecs_q = Queue.create ~capacity:(List.length iovecs) () in
       let len =
@@ -88,7 +82,10 @@ end
 (* taken from
    https://github.com/janestreet/async_extra/blob/master/src/tcp.ml *)
 let reader_writer_of_sock
-    ?buffer_age_limit ?reader_buffer_size ?writer_buffer_size s
+    ?buffer_age_limit
+    ?reader_buffer_size
+    ?writer_buffer_size
+    s
   =
   let fd = Socket.fd s in
   ( Reader.create ?buf_len:reader_buffer_size fd

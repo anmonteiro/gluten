@@ -31,22 +31,14 @@
  *---------------------------------------------------------------------------*)
 open! Async
 
-type descriptor = [ `Ssl_not_available ]
+type _ descriptor = [ `Tls_not_available ]
 
-module Io :
-  Gluten_async_intf.IO
-    with type socket = descriptor
-     and type addr = Unix.sockaddr = struct
-  type socket = descriptor
-
-  type addr = Unix.sockaddr
+module Io : Gluten_async_intf.IO with type 'a socket = 'a descriptor = struct
+  type 'a socket = 'a descriptor constraint 'a = [< Socket.Address.t ]
 
   let read _ _bigstring ~off:_ ~len:_ = failwith "TLS not available"
-
   let writev _ _iovecs = failwith "TLS not available"
-
   let shutdown_receive _ = failwith "TLS not available"
-
   let close _ = failwith "TLS not available"
 end
 
@@ -54,7 +46,10 @@ let make_default_client ?alpn_protocols:_ ?host:_ _socket _where_to_connect =
   failwith "TLS not available"
 
 let[@ocaml.warning "-21"] make_server
-    ?alpn_protocols:_ ~certfile:_ ~keyfile:_ _socket
+    ?alpn_protocols:_
+    ~certfile:_
+    ~keyfile:_
+    _socket
   =
   failwith "TLS not available";
   fun _socket -> failwith "TLS not available"

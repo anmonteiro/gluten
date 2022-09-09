@@ -36,17 +36,18 @@ open Core
 open Async
 module Buffer = Gluten.Buffer
 
-module IO_loop = struct
+module Make_IO_Loop (Io : Gluten_async_intf.IO) = struct
+  type 'a fd = 'a Io.socket
+
   let start
-      : type t fd.
-        (module Gluten_async_intf.IO with type socket = fd)
-        -> (module Gluten.RUNTIME with type t = t)
+      : type t.
+        (module Gluten.RUNTIME with type t = t)
         -> t
         -> read_buffer_size:int
-        -> fd
+        -> 'a fd
         -> unit Deferred.t
     =
-   fun (module Io) (module Runtime) t ~read_buffer_size socket ->
+   fun (module Runtime) t ~read_buffer_size socket ->
     let read_buffer = Buffer.create read_buffer_size in
     let read_complete = Ivar.create () in
     let rec reader_thread () =
@@ -67,8 +68,7 @@ module IO_loop = struct
                   Runtime.read t bigstring ~off ~len)
               |> ignore;
               reader_thread ())
-      | `Yield ->
-        Runtime.yield_reader t reader_thread
+      | `Yield -> Runtime.yield_reader t reader_thread
       | `Close ->
         Ivar.fill read_complete ();
         Io.shutdown_receive socket
@@ -81,10 +81,8 @@ module IO_loop = struct
         writev iovecs >>> fun result ->
         Runtime.report_write_result t result;
         writer_thread ()
-      | `Yield ->
-        Runtime.yield_writer t writer_thread
-      | `Close _ ->
-        Ivar.fill write_complete ()
+      | `Yield -> Runtime.yield_writer t writer_thread
+      | `Close _ -> Ivar.fill write_complete ()
     in
     let conn_monitor = Monitor.create () in
     Scheduler.within ~monitor:conn_monitor reader_thread;
@@ -98,18 +96,19 @@ module IO_loop = struct
 end
 
 module Make_server (Io : Gluten_async_intf.IO) = struct
-  type socket = Io.socket
+  type 'a socket = 'a Io.socket
+
+  module IO_loop = Make_IO_Loop (Io)
 
   let create_connection_handler
-      ~read_buffer_size ~protocol connection _client_addr socket
+      ~read_buffer_size
+      ~protocol
+      connection
+      _client_addr
+      socket
     =
     let connection = Gluten.Server.create ~protocol connection in
-    IO_loop.start
-      (module Io)
-      (module Gluten.Server)
-      connection
-      ~read_buffer_size
-      socket
+    IO_loop.start (module Gluten.Server) connection ~read_buffer_size socket
 
   let create_upgradable_connection_handler
       ~read_buffer_size
@@ -125,21 +124,14 @@ module Make_server (Io : Gluten_async_intf.IO) = struct
         ~create:create_protocol
         (request_handler client_addr)
     in
-    IO_loop.start
-      (module Io)
-      (module Gluten.Server)
-      connection
-      ~read_buffer_size
-      socket
+    IO_loop.start (module Gluten.Server) connection ~read_buffer_size socket
 end
 
 module Unix_io :
   Gluten_async_intf.IO
-    with type socket = ([ `Active ], Socket.Address.Inet.t) Socket.t
-     and type addr = Socket.Address.Inet.t = struct
-  type socket = ([ `Active ], Socket.Address.Inet.t) Socket.t
-
-  type addr = Socket.Address.Inet.t
+    with type 'a socket = ([ `Active ], ([< Socket.Address.t ] as 'a)) Socket.t =
+struct
+  type 'a socket = ([ `Active ], ([< Socket.Address.t ] as 'a)) Socket.t
 
   let read socket bigstring ~off ~len =
     let fd = Socket.fd socket in
@@ -147,25 +139,20 @@ module Unix_io :
     let rec finish fd buffer result =
       let open Unix.Error in
       match result with
-      | `Already_closed | `Ok 0 ->
-        return `Eof
-      | `Ok n ->
-        return (`Ok n)
+      | `Already_closed | `Ok 0 -> return `Eof
+      | `Ok n -> return (`Ok n)
       | `Error (Unix.Unix_error ((EWOULDBLOCK | EAGAIN), _, _)) ->
         Fd.ready_to fd `Read >>= ( function
-        | `Bad_fd ->
-          badfd fd
-        | `Closed ->
-          return `Eof
-        | `Ready ->
-          go fd buffer )
-      | `Error (Unix.Unix_error (EBADF, _, _)) ->
-        badfd fd
+        | `Bad_fd -> badfd fd
+        | `Closed -> return `Eof
+        | `Ready -> go fd buffer )
+      | `Error (Unix.Unix_error (EBADF, _, _)) -> badfd fd
       | `Error exn ->
         Deferred.don't_wait_for (Fd.close fd);
         raise exn
     and go fd buffer =
-      if Fd.supports_nonblock fd then
+      if Fd.supports_nonblock fd
+      then
         finish
           fd
           buffer
@@ -188,16 +175,15 @@ module Unix_io :
 
   let shutdown_receive socket =
     let fd = Socket.fd socket in
-    if not (Fd.is_closed fd) then
-      Socket.shutdown socket `Receive
+    if not (Fd.is_closed fd) then Socket.shutdown socket `Receive
 
   let close socket =
     let fd = Socket.fd socket in
-    if not (Fd.is_closed fd) then (
+    if not (Fd.is_closed fd)
+    then (
       Socket.shutdown socket `Both;
       Fd.close fd)
-    else
-      Deferred.unit
+    else Deferred.unit
 end
 
 module Server = struct
@@ -223,18 +209,19 @@ end
 module Make_client (Io : Gluten_async_intf.IO) = struct
   module Client_connection = Gluten.Client
 
-  type socket = Io.socket
+  type 'a socket = 'a Io.socket
 
-  type t =
+  module IO_loop = Make_IO_Loop (Io)
+
+  type 'a t =
     { connection : Client_connection.t
-    ; socket : socket
+    ; socket : 'a socket
     }
 
   let create ~read_buffer_size ~protocol t socket =
     let connection = Client_connection.create ~protocol t in
     don't_wait_for
       (IO_loop.start
-         (module Io)
          (module Client_connection)
          connection
          ~read_buffer_size

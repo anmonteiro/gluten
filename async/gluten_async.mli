@@ -37,26 +37,23 @@ open Async
 module Server : sig
   include
     Gluten_async_intf.Server
-      with type socket = ([ `Active ], Socket.Address.Inet.t) Socket.t
-       and type addr := Socket.Address.Inet.t
+      with type 'a socket =
+        ([ `Active ], ([< Socket.Address.t ] as 'a)) Socket.t
 
   module SSL : sig
-    include
-      Gluten_async_intf.Server
-        with type socket = Ssl_io.descriptor
-         and type addr := Socket.Address.Inet.t
+    include Gluten_async_intf.Server with type 'a socket = 'a Ssl_io.descriptor
 
     val create_default
       :  ?alpn_protocols:string list
       -> certfile:string
       -> keyfile:string
-      -> ([< Socket.Address.Inet.t ] as 'a)
+      -> ([< Socket.Address.t ] as 'a)
       -> ([ `Active ], 'a) Socket.t
-      -> socket Deferred.t
+      -> 'a socket Deferred.t
   end
 
   (* module TLS : sig include Gluten_async_intf.Server with type socket =
-     Tls_io.descriptor and type addr := Socket.Address.Inet.t
+     Tls_io.descriptor and type addr := Socket.Address.t
 
      val create_default : ?alpn_protocols:string list -> certfile:string ->
      keyfile:string -> 'b -> ([ `Active ], 'a) Socket.t -> socket Deferred.t
@@ -66,24 +63,25 @@ end
 module Client : sig
   include
     Gluten_async_intf.Client
-      with type socket = ([ `Active ], Socket.Address.Inet.t) Socket.t
+      with type 'a socket =
+        ([ `Active ], ([< Socket.Address.t ] as 'a)) Socket.t
 
   module SSL : sig
-    include Gluten_async_intf.Client with type socket = Ssl_io.descriptor
+    include Gluten_async_intf.Client with type 'a socket = 'a Ssl_io.descriptor
 
     val create_default
       :  ?alpn_protocols:string list
       -> ([ `Active ], [< Socket.Address.t ]) Socket.t
-      -> socket Deferred.t
+      -> [< Socket.Address.t ] socket Deferred.t
   end
 
   module TLS : sig
-    include Gluten_async_intf.Client with type socket = Tls_io.descriptor
+    include Gluten_async_intf.Client with type 'a socket = 'a Tls_io.descriptor
 
     val create_default
       :  ?alpn_protocols:string list
-      -> ([ `Unconnected ], 'addr) Socket.t
-      -> 'addr Tcp.Where_to_connect.t
-      -> socket Deferred.t
+      -> ([ `Unconnected ], ([< Socket.Address.t ] as 'a)) Socket.t
+      -> 'a Tcp.Where_to_connect.t
+      -> 'a socket Deferred.t
   end
 end

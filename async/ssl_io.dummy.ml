@@ -32,22 +32,14 @@
 
 open Async
 
-type descriptor = [ `Ssl_not_available ]
+type _ descriptor = [ `Ssl_not_available ]
 
-module Io :
-  Gluten_async_intf.IO
-    with type socket = descriptor
-     and type addr = Socket.Address.Inet.t = struct
-  type socket = descriptor
-
-  type addr = Socket.Address.Inet.t
+module Io : Gluten_async_intf.IO with type 'a socket = 'a descriptor = struct
+  type 'a socket = 'a descriptor constraint 'a = [< Socket.Address.t ]
 
   let read _ _bigstring ~off:_ ~len:_ = failwith "Ssl not available"
-
   let writev _ _iovecs = failwith "Ssl not available"
-
   let shutdown_receive _ = failwith "Ssl not available"
-
   let close _ = failwith "Ssl not available"
 end
 
