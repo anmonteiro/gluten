@@ -33,7 +33,7 @@
 module Server : sig
   module type S = Gluten_eio_intf.Server
 
-  include Gluten_eio_intf.Server with type socket = Eio.Flow.two_way
+  include Gluten_eio_intf.Server with type socket = Eio.Net.stream_socket
 
   module SSL : sig
     include Gluten_eio_intf.Server with type socket = Ssl_io.descriptor
