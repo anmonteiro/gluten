@@ -38,23 +38,41 @@ module IO_loop = struct
       : type t fd.
         (module Gluten_eio_intf.IO with type socket = fd)
         -> (module Gluten.RUNTIME with type t = t)
-        -> t
         -> read_buffer_size:int
+        -> cancel:unit Promise.t
+        -> t
         -> fd
         -> unit
     =
-   fun (module Io) (module Runtime) t ~read_buffer_size socket ->
+   fun (module Io) (module Runtime) ~read_buffer_size ~cancel t socket ->
     let read_buffer = Buffer.create read_buffer_size in
     let rec read_loop () =
       let rec read_loop_step () =
         match Runtime.next_read_operation t with
         | `Read ->
-          let p, u = Promise.create () in
-          Buffer.put
-            ~f:(fun buf ~off ~len k -> k (Io.read socket buf ~off ~len))
-            read_buffer
-            (Promise.resolve u);
-          (match Promise.await p with
+          let read_result =
+            Fiber.first
+              (fun () ->
+                let p, u = Promise.create () in
+                try
+                  Buffer.put
+                    ~f:(fun buf ~off ~len k -> k (Io.read socket buf ~off ~len))
+                    read_buffer
+                    (Promise.resolve u);
+
+                  Promise.await p
+                with
+                | Eio.Cancel.Cancelled Eio__core__Fiber.Not_first ->
+                  (* TODO(anmonteiro): consider raising End_of_file instead *)
+                  `Eof)
+              (fun () ->
+                (* https://github.com/ocaml-multicore/eio/issues/214
+                 * TODO(anmonteiro): Investigate using [shutdown flow `Send]
+                 * instead on the writer. *)
+                Promise.await cancel;
+                `Eof)
+          in
+          (match read_result with
           | `Eof ->
             let (_ : int) = Buffer.get read_buffer ~f:(Runtime.read_eof t) in
             read_loop_step ()
@@ -90,23 +108,25 @@ module IO_loop = struct
       | () -> ()
       | exception exn -> Runtime.report_exn t exn
     in
-    Fiber.both read_loop write_loop;
-    Io.close socket
+    Fiber.both read_loop write_loop
 end
 
-module Io : Gluten_eio_intf.IO with type socket = Eio.Flow.two_way = struct
-  type socket = Eio.Flow.two_way
+module Io : Gluten_eio_intf.IO with type socket = Eio.Net.stream_socket = struct
+  type socket = Eio.Net.stream_socket
 
   let shutdown socket cmd =
     try Eio.Flow.shutdown socket cmd with
     | Unix.Unix_error (ENOTCONN, _, _) -> ()
 
+  let shutdown_receive socket = shutdown socket `Receive
   let close socket = shutdown socket `All
 
   let read socket buf ~off ~len =
     match Eio.Flow.read socket (Cstruct.of_bigarray buf ~off ~len) with
     | n -> `Ok n
-    | exception End_of_file -> `Eof
+    | exception (End_of_file | Unix.Unix_error (ENOTCONN, _, _)) ->
+      (* TODO(anmonteiro): logging? *)
+      `Eof
 
   let writev socket iovecs =
     let lenv, cstructs =
@@ -120,8 +140,6 @@ module Io : Gluten_eio_intf.IO with type socket = Eio.Flow.two_way = struct
     match Eio.Flow.copy iovec_source socket with
     | () -> `Ok lenv
     | exception _ -> `Closed
-
-  let shutdown_receive socket = shutdown socket `Receive
 end
 
 module MakeServer (Io : Gluten_eio_intf.IO) = struct
@@ -138,10 +156,12 @@ module MakeServer (Io : Gluten_eio_intf.IO) = struct
       socket
     =
     let connection = Server.create ~protocol connection in
+    let never, _ = Promise.create () in
     IO_loop.start
       (module Io)
       (module Server)
       connection
+      ~cancel:never
       ~read_buffer_size
       socket
 
@@ -153,6 +173,7 @@ module MakeServer (Io : Gluten_eio_intf.IO) = struct
       (client_addr : addr)
       socket
     =
+    let never, _ = Promise.create () in
     let connection =
       Server.create_upgradable
         ~protocol
@@ -162,8 +183,9 @@ module MakeServer (Io : Gluten_eio_intf.IO) = struct
     IO_loop.start
       (module Io)
       (module Server)
-      connection
       ~read_buffer_size
+      ~cancel:never
+      connection
       socket
 end
 
@@ -191,25 +213,38 @@ module MakeClient (Io : Gluten_eio_intf.IO) = struct
   type t =
     { connection : Client_connection.t
     ; socket : socket
+    ; shutdown_reader : unit -> unit
+    ; shutdown_complete : unit Promise.t
     }
 
   let create ~sw ~read_buffer_size ~protocol t socket =
     let connection = Client_connection.create ~protocol t in
+    let shutdown_p, shutdown_u = Promise.create () in
+    let cancel_reader, resolve_cancel_reader = Promise.create () in
     Fiber.fork ~sw (fun () ->
-        IO_loop.start
-          (module Io)
-          (module Client_connection)
-          ~read_buffer_size
-          connection
-          socket);
-    { connection; socket }
+        Fun.protect ~finally:(Promise.resolve shutdown_u) (fun () ->
+            Switch.run (fun sw ->
+                Fiber.fork ~sw (fun () ->
+                    IO_loop.start
+                      (module Io)
+                      (module Client_connection)
+                      ~cancel:cancel_reader
+                      ~read_buffer_size
+                      connection
+                      socket))));
+    { connection
+    ; socket
+    ; shutdown_reader = Promise.resolve resolve_cancel_reader
+    ; shutdown_complete = shutdown_p
+    }
 
   let upgrade t protocol =
     Client_connection.upgrade_protocol t.connection protocol
 
   let shutdown t =
+    t.shutdown_reader ();
     Client_connection.shutdown t.connection;
-    Io.close t.socket
+    Promise.await t.shutdown_complete
 
   let is_closed t = Client_connection.is_closed t.connection
   let socket t = t.socket
