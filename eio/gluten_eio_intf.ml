@@ -47,6 +47,7 @@ module type IO = sig
     -> [ `Closed | `Ok of int ]
 
   val shutdown_receive : socket -> unit
+  val shutdown_send : socket -> unit
   val close : socket -> unit
 end
 
