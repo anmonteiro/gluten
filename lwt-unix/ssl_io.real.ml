@@ -38,44 +38,31 @@ module Io :
   Gluten_lwt.IO with type socket = descriptor and type addr = Unix.sockaddr =
 struct
   type socket = Lwt_ssl.socket
-
   type addr = Unix.sockaddr
 
   let close ssl =
     let fd = Lwt_ssl.get_fd ssl in
     match Lwt_unix.state fd with
-    | Closed ->
-      Lwt.return_unit
+    | Closed | Aborted _ -> Lwt.return_unit
     | _ ->
-      Lwt_ssl.ssl_shutdown ssl >>= fun () ->
       Lwt.catch
-        (fun () -> Lwt.wrap2 Lwt_ssl.shutdown ssl Unix.SHUTDOWN_ALL)
+        (fun () ->
+          Lwt_ssl.ssl_shutdown ssl >>= fun () ->
+          Lwt.wrap2 Lwt_ssl.shutdown ssl Unix.SHUTDOWN_ALL >>= fun () ->
+          Lwt_ssl.close ssl)
         (function
-          | Unix.Unix_error (Unix.ENOTCONN, _, _) ->
-            Lwt.return_unit
-          | exn ->
-            Lwt.fail exn)
-      >>= fun () ->
-      (match Lwt_unix.state fd with
-      | Lwt_unix.Closed ->
-        Lwt.return_unit
-      | _ ->
-        Lwt.catch (fun () -> Lwt_ssl.close ssl) (fun _exn -> Lwt.return_unit))
+          | Unix.Unix_error (Unix.ENOTCONN, _, _) -> Lwt.return_unit
+          | exn -> Lwt.fail exn)
 
   let read ssl bigstring ~off ~len =
     Lwt.catch
       (fun () ->
         Lwt_ssl.read_bytes ssl bigstring off len >|= function
-        | 0 ->
-          `Eof
-        | n ->
-          `Ok n)
+        | 0 -> `Eof
+        | n -> `Ok n)
       (function
-        | Unix.Unix_error (Unix.EBADF, _, _) ->
-          Lwt.return `Eof
-        | exn ->
-          Lwt.async (fun () -> close ssl);
-          Lwt.fail exn)
+        | Unix.Unix_error (Unix.EBADF, _, _) -> Lwt.return `Eof
+        | exn -> Lwt.fail exn)
 
   let writev ssl iovecs =
     Lwt.catch
@@ -90,8 +77,7 @@ struct
       (function
         | Unix.Unix_error (Unix.EBADF, "check_descriptor", _) ->
           Lwt.return `Closed
-        | exn ->
-          Lwt.fail exn)
+        | exn -> Lwt.fail exn)
 
   (* From RFC8446§6.1:
    *   The client and the server must share knowledge that the connection is
@@ -108,19 +94,14 @@ let make_default_client ?alpn_protocols socket =
   Ssl.disable_protocols client_ctx [ Ssl.SSLv23 ];
   Ssl.honor_cipher_order client_ctx;
   (match alpn_protocols with
-  | Some protos ->
-    Ssl.set_context_alpn_protos client_ctx protos
-  | None ->
-    ());
+  | Some protos -> Ssl.set_context_alpn_protos client_ctx protos
+  | None -> ());
   Lwt_ssl.ssl_connect socket client_ctx
 
 let rec first_match l1 = function
-  | [] ->
-    None
-  | x :: _ when List.mem x l1 ->
-    Some x
-  | _ :: xs ->
-    first_match l1 xs
+  | [] -> None
+  | x :: _ when List.mem x l1 -> Some x
+  | _ :: xs -> first_match l1 xs
 
 let make_server ?alpn_protocols ~certfile ~keyfile socket =
   let server_ctx = Ssl.create_context Ssl.SSLv23 Ssl.Server_context in
@@ -129,9 +110,7 @@ let make_server ?alpn_protocols ~certfile ~keyfile socket =
   (match alpn_protocols with
   | Some protos ->
     Ssl.set_context_alpn_protos server_ctx protos;
-    Ssl.set_context_alpn_select_callback
-      server_ctx
-      (fun client_protos -> first_match client_protos protos);
-  | None ->
-    ());
+    Ssl.set_context_alpn_select_callback server_ctx (fun client_protos ->
+        first_match client_protos protos)
+  | None -> ());
   Lwt_ssl.ssl_accept socket server_ctx
