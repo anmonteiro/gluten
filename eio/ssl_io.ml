@@ -36,7 +36,6 @@ module Io : Gluten_eio_intf.IO with type socket = descriptor = struct
   type socket = Eio_ssl.socket
 
   let close ssl =
-    Eio_ssl.ssl_shutdown ssl;
     try Eio_ssl.shutdown ssl `All with
     | Unix.Unix_error (Unix.ENOTCONN, _, _) -> ()
     | exn -> raise exn
@@ -46,22 +45,18 @@ module Io : Gluten_eio_intf.IO with type socket = descriptor = struct
     | 0 -> `Eof
     | n -> `Ok n
     | exception Unix.Unix_error (Unix.EBADF, _, _) -> `Eof
-    | exception exn ->
-      close ssl;
-      raise exn
+    | exception exn -> raise exn
 
   let writev ssl iovecs =
-    match
+    let written =
       List.fold_left
         (fun acc { Faraday.buffer; off; len } ->
           let written = Eio_ssl.write ssl buffer ~off ~len in
           acc + written)
         0
         iovecs
-    with
-    | written -> `Ok written
-    | exception Unix.Unix_error (Unix.EBADF, "check_descriptor", _) -> `Closed
-    | exception exn -> raise exn
+    in
+    `Ok written
 
   (* From RFC8446§6.1:
    *   The client and the server must share knowledge that the connection is
@@ -71,6 +66,10 @@ module Io : Gluten_eio_intf.IO with type socket = descriptor = struct
    * full-duplex connection, as both sides must know that the underlying TLS
    * conection is closing. *)
   let shutdown_receive _ssl = ()
+
+  let shutdown_send ssl =
+    let (_ : bool) = Eio_ssl.close_notify ssl in
+    ()
 end
 
 let make_default_client ?alpn_protocols socket =

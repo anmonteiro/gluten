@@ -54,21 +54,13 @@ module IO_loop = struct
             Fiber.first
               (fun () ->
                 let p, u = Promise.create () in
-                try
-                  Buffer.put
-                    ~f:(fun buf ~off ~len k -> k (Io.read socket buf ~off ~len))
-                    read_buffer
-                    (Promise.resolve u);
+                Buffer.put
+                  ~f:(fun buf ~off ~len k -> k (Io.read socket buf ~off ~len))
+                  read_buffer
+                  (Promise.resolve u);
 
-                  Promise.await p
-                with
-                | Eio.Cancel.Cancelled Eio__core__Fiber.Not_first ->
-                  (* TODO(anmonteiro): consider raising End_of_file instead *)
-                  `Eof)
+                Promise.await p)
               (fun () ->
-                (* https://github.com/ocaml-multicore/eio/issues/214
-                 * TODO(anmonteiro): Investigate using [shutdown flow `Send]
-                 * instead on the writer. *)
                 Promise.await cancel;
                 `Eof)
           in
@@ -102,7 +94,7 @@ module IO_loop = struct
           Runtime.yield_writer t (Promise.resolve u);
           Promise.await p;
           write_loop ()
-        | `Close _ -> ()
+        | `Close _ -> Io.shutdown_send socket
       in
       match write_loop_step () with
       | () -> ()
@@ -119,6 +111,7 @@ module Io : Gluten_eio_intf.IO with type socket = Eio.Net.stream_socket = struct
     | Unix.Unix_error (ENOTCONN, _, _) -> ()
 
   let shutdown_receive socket = shutdown socket `Receive
+  let shutdown_send socket = shutdown socket `Send
   let close socket = shutdown socket `All
 
   let read socket buf ~off ~len =
