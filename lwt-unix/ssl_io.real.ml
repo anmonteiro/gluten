@@ -47,7 +47,7 @@ struct
     | _ ->
       Lwt.catch
         (fun () ->
-          Lwt_ssl.ssl_shutdown ssl >>= fun () ->
+          Lwt_ssl.close_notify ssl >>= fun _shutdown ->
           Lwt.wrap2 Lwt_ssl.shutdown ssl Unix.SHUTDOWN_ALL >>= fun () ->
           Lwt_ssl.close ssl)
         (function
