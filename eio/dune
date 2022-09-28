@@ -1,14 +1,4 @@
 (library
  (name gluten_eio)
  (public_name gluten-eio)
- (libraries
-  gluten
-  eio_main
-  bigstringaf
-  eio-ssl
-  ; (select
-  ; ssl_io.ml
-  ; from
-  ; (eio-ssl -> ssl_io.real.ml)
-  ; (-> ssl_io.dummy.ml))
-  ))
+ (libraries gluten eio_main bigstringaf))
