@@ -43,9 +43,7 @@ module IO_loop = struct
         iovecs
     in
     let iovec_source = Eio.Flow.cstruct_source cstructs in
-    match Eio.Flow.copy iovec_source socket with
-    | () -> `Ok lenv
-    | exception _ -> `Closed
+    match Eio.Flow.copy iovec_source socket with () -> `Ok lenv
 
   let read flow buffer =
     let p, u = Promise.create () in
