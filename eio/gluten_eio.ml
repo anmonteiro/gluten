@@ -43,7 +43,9 @@ module IO_loop = struct
         iovecs
     in
     let iovec_source = Eio.Flow.cstruct_source cstructs in
-    match Eio.Flow.copy iovec_source socket with () -> `Ok lenv
+    match Eio.Flow.copy iovec_source socket with
+    | () -> `Ok lenv
+    | exception End_of_file -> `Closed
 
   let read flow buffer =
     let p, u = Promise.create () in
@@ -59,6 +61,9 @@ module IO_loop = struct
       buffer
       (Promise.resolve u);
     Promise.await p
+
+  let shutdown flow cmd =
+    try Eio.Flow.shutdown flow cmd with Unix.Unix_error (ENOTCONN, _, _) -> ()
 
   let start
       : type t.
@@ -94,7 +99,7 @@ module IO_loop = struct
           Runtime.yield_reader t (Promise.resolve u);
           Promise.await p;
           read_loop ()
-        | `Close -> Eio.Flow.shutdown socket `Receive
+        | `Close -> shutdown socket `Receive
       in
       match read_loop_step () with
       | () -> ()
@@ -112,7 +117,7 @@ module IO_loop = struct
           Runtime.yield_writer t (Promise.resolve u);
           Promise.await p;
           write_loop ()
-        | `Close _ -> Eio.Flow.shutdown socket `Send
+        | `Close _ -> shutdown socket `Send
       in
       match write_loop_step () with
       | () -> ()
@@ -122,8 +127,6 @@ module IO_loop = struct
 end
 
 module Server = struct
-  module Server = Gluten.Server
-
   type addr = Eio.Net.Sockaddr.stream
 
   let create_connection_handler
@@ -133,10 +136,10 @@ module Server = struct
       _client_addr
       socket
     =
-    let connection = Server.create ~protocol connection in
+    let connection = Gluten.Server.create ~protocol connection in
     let never, _ = Promise.create () in
     IO_loop.start
-      (module Server)
+      (module Gluten.Server)
       connection
       ~cancel:never
       ~read_buffer_size
@@ -152,13 +155,13 @@ module Server = struct
     =
     let never, _ = Promise.create () in
     let connection =
-      Server.create_upgradable
+      Gluten.Server.create_upgradable
         ~protocol
         ~create:create_protocol
         (request_handler client_addr)
     in
     IO_loop.start
-      (module Server)
+      (module Gluten.Server)
       ~read_buffer_size
       ~cancel:never
       connection
