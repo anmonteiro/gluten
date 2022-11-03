@@ -42,16 +42,15 @@ module IO_loop = struct
         0
         iovecs
     in
-    let iovec_source = Eio.Flow.cstruct_source cstructs in
-    match Eio.Flow.copy iovec_source socket with
+    match Eio.Flow.write socket cstructs with
     | () -> `Ok lenv
     | exception End_of_file -> `Closed
 
-  let read flow buffer =
+  let read_inner flow buffer =
     let p, u = Promise.create () in
     Buffer.put
       ~f:(fun buf ~off ~len k ->
-        match Eio.Flow.read flow (Cstruct.of_bigarray buf ~off ~len) with
+        match Eio.Flow.single_read flow (Cstruct.of_bigarray buf ~off ~len) with
         | n -> k (`Ok n)
         | exception
             ( End_of_file | Eio.Net.Connection_reset _
@@ -61,6 +60,13 @@ module IO_loop = struct
       buffer
       (Promise.resolve u);
     Promise.await p
+
+  let rec read flow buffer =
+    match read_inner flow buffer with
+    | r -> r
+    | exception Unix.Unix_error (Unix.EAGAIN, _, _) ->
+      Fiber.yield ();
+      read flow buffer
 
   let shutdown flow cmd =
     try Eio.Flow.shutdown flow cmd with Unix.Unix_error (ENOTCONN, _, _) -> ()
@@ -87,13 +93,13 @@ module IO_loop = struct
                 Promise.await cancel;
                 `Eof)
           in
-          (match read_result with
-          | `Eof ->
-            let (_ : int) = Buffer.get read_buffer ~f:(Runtime.read_eof t) in
-            read_loop_step ()
-          | `Ok _n ->
-            let (_ : int) = Buffer.get read_buffer ~f:(Runtime.read t) in
-            read_loop_step ())
+          let (_ : int) =
+            Buffer.get read_buffer ~f:(fun buf ~off ~len ->
+                match read_result with
+                | `Eof -> Runtime.read_eof t buf ~off ~len
+                | `Ok _n -> Runtime.read t buf ~off ~len)
+          in
+          read_loop_step ()
         | `Yield ->
           let p, u = Promise.create () in
           Runtime.yield_reader t (Promise.resolve u);
