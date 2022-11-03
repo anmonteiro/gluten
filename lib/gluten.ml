@@ -34,11 +34,8 @@ module type RUNTIME = sig
   type t
 
   val next_read_operation : t -> [ `Read | `Yield | `Close ]
-
   val read : t -> Bigstringaf.t -> off:int -> len:int -> int
-
   val read_eof : t -> Bigstringaf.t -> off:int -> len:int -> int
-
   val yield_reader : t -> (unit -> unit) -> unit
 
   val next_write_operation
@@ -46,18 +43,13 @@ module type RUNTIME = sig
     -> [ `Write of Bigstringaf.t Faraday.iovec list | `Yield | `Close of int ]
 
   val report_write_result : t -> [ `Ok of int | `Closed ] -> unit
-
   val yield_writer : t -> (unit -> unit) -> unit
-
   val report_exn : t -> exn -> unit
-
   val is_closed : t -> bool
-
   val shutdown : t -> unit
 end
 
 type 't runtime = (module RUNTIME with type t = 't)
-
 type impl = Runtime : 't runtime * 't -> impl
 
 let make runtime t = Runtime (runtime, t)
@@ -76,9 +68,7 @@ module Runtime = struct
     P.next_read_operation t
 
   let read { connection = Runtime ((module P), t) } = P.read t
-
   let read_eof { connection = Runtime ((module P), t) } = P.read_eof t
-
   let yield_reader { connection = Runtime ((module P), t) } = P.yield_reader t
 
   let next_write_operation { connection = Runtime ((module P), t) } =
@@ -88,11 +78,8 @@ module Runtime = struct
     P.report_write_result t
 
   let yield_writer { connection = Runtime ((module P), t) } = P.yield_writer t
-
   let report_exn { connection = Runtime ((module P), t) } = P.report_exn t
-
   let shutdown { connection = Runtime ((module P), t) } = P.shutdown t
-
   let is_closed { connection = Runtime ((module P), t) } = P.is_closed t
 end
 
@@ -145,8 +132,7 @@ module Buffer = struct
 
   let get t ~f =
     match Qe.N.peek t with
-    | [] ->
-      f Bigstringaf.empty ~off:0 ~len:0
+    | [] -> f Bigstringaf.empty ~off:0 ~len:0
     | [ slice ] ->
       assert (Bigstringaf.length slice = Qe.length t);
       let n = f slice ~off:0 ~len:(Bigstringaf.length slice) in
@@ -163,8 +149,7 @@ module Buffer = struct
     Qe.compress t;
     let buffer = Qe.unsafe_bigarray t in
     f buffer ~off:(Qe.length t) ~len:(Qe.available t) (function
-        | `Eof ->
-          k `Eof
+        | `Eof -> k `Eof
         | `Ok n as ret ->
           (* Increment the offset, without making a copy *)
           let (_ : ('a, 'b) Qe.N.bigarray list) =
