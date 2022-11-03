@@ -34,7 +34,7 @@ open Eio.Std
 module Buffer = Gluten.Buffer
 
 module IO_loop = struct
-  let writev socket iovecs =
+  let rec writev socket iovecs =
     let lenv, cstructs =
       List.fold_left_map
         (fun acc { Faraday.buffer; off; len } ->
@@ -46,8 +46,11 @@ module IO_loop = struct
     match Eio.Flow.copy iovec_source socket with
     | () -> `Ok lenv
     | exception End_of_file -> `Closed
+    | exception Unix.Unix_error (Unix.EAGAIN, _, _) ->
+      Fiber.yield ();
+      writev socket iovecs
 
-  let read flow buffer =
+  let read_inner flow buffer =
     let p, u = Promise.create () in
     Buffer.put
       ~f:(fun buf ~off ~len k ->
@@ -61,6 +64,13 @@ module IO_loop = struct
       buffer
       (Promise.resolve u);
     Promise.await p
+
+  let rec read flow buffer =
+    match read_inner flow buffer with
+    | r -> r
+    | exception Unix.Unix_error (Unix.EAGAIN, _, _) ->
+      Fiber.yield ();
+      read flow buffer
 
   let shutdown flow cmd =
     try Eio.Flow.shutdown flow cmd with Unix.Unix_error (ENOTCONN, _, _) -> ()
