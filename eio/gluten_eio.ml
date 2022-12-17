@@ -53,8 +53,9 @@ module IO_loop = struct
         match Eio.Flow.single_read flow (Cstruct.of_bigarray buf ~off ~len) with
         | n -> k (`Ok n)
         | exception
-            ( End_of_file | Eio.Net.Connection_reset _
-            | Unix.Unix_error (ENOTCONN, _, _) ) ->
+            ( End_of_file
+            | Unix.Unix_error (ENOTCONN, _, _)
+            | Eio.Io (Eio.Net.E (Connection_reset _), _) ) ->
           (* TODO(anmonteiro): logging? *)
           k `Eof)
       buffer
