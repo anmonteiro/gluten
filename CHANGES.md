@@ -6,6 +6,9 @@ Unreleased
   ([#35](https://github.com/anmonteiro/gluten/pull/35))
 - gluten-async: Allow connecting to a UNIX domain socket
   ([#40](https://github.com/anmonteiro/gluten/pull/40))
+- gluten-async: Fix memory leak in the SSL / TLS implementations
+  ([#48](https://github.com/anmonteiro/gluten/pull/48))
+
 
 0.3.0 2022-08-08
 --------------
