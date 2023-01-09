@@ -61,8 +61,7 @@ module Io : Gluten_async_intf.IO with type 'a socket = 'a descriptor = struct
           iovecs
       in
       Writer.schedule_iovecs writer iovecs_q;
-      let pipe = Writer.pipe writer in
-      Pipe.downstream_flushed pipe >>| fun _ -> `Ok len
+      Writer.flushed writer >>| fun _ -> `Ok len
 
   (* From RFC8446§6.1:
    *   The client and the server must share knowledge that the connection is
