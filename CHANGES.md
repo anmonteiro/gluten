@@ -1,4 +1,4 @@
-Unreleased
+0.4.0 2023-01-20
 --------------
 
 - gluten-eio: Add `gluten-eio` package, a gluten backend for
