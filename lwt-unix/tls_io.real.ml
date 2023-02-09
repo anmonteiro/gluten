@@ -78,11 +78,41 @@ struct
   let shutdown_receive _tls = ()
 end
 
+let make_full_client authenticator ?peer_name ?ciphers ?version ?signature_algorithms ?reneg ?certificates ?alpn_protocols ?ip socket =
+  let config = Tls.Config.client
+    ~authenticator:authenticator
+    ?peer_name
+    ?ciphers
+    ?version
+    ?signature_algorithms
+    ?reneg
+    ?certificates
+    ?alpn_protocols
+    ?ip
+    () in
+  Tls_lwt.Unix.client_of_fd config socket
+
 let null_auth ?ip:_ ~host:_ _ = Ok None
 
 let make_client ?alpn_protocols socket =
   let config = Tls.Config.client ?alpn_protocols ~authenticator:null_auth () in
   Tls_lwt.Unix.client_of_fd config socket
+
+let make_full_server ?ciphers ?version ?signature_algorithms ?reneg ?certificates ?acceptable_cas ?authenticator ?alpn_protocols ?zero_rtt ?ip _client_addr socket =
+  let config = Tls.Config.server
+    ?ciphers
+    ?version
+    ?signature_algorithms
+    ?reneg
+    ?certificates
+    ?acceptable_cas
+    ?authenticator
+    ?alpn_protocols
+    ?zero_rtt
+    ?ip
+    ()
+  in
+  Tls_lwt.Unix.server_of_fd config socket
 
 let make_server ?alpn_protocols ~certfile ~keyfile socket =
   X509_lwt.private_of_pems ~cert:certfile ~priv_key:keyfile

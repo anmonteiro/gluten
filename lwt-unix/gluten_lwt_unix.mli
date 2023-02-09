@@ -42,6 +42,21 @@ module Server : sig
         with type socket = Tls_io.descriptor
          and type addr = Unix.sockaddr
 
+    val create_full
+      :  ?ciphers:Tls.Ciphersuite.ciphersuite list
+      -> ?version:(Tls.Core.tls_version * Tls.Core.tls_version)
+      -> ?signature_algorithms:Tls.Core.signature_algorithm list
+      -> ?reneg:bool
+      -> ?certificates:Tls.Config.own_cert
+      -> ?acceptable_cas:X509.Distinguished_name.t list
+      -> ?authenticator:X509.Authenticator.t
+      -> ?alpn_protocols:string list
+      -> ?zero_rtt:int32
+      -> ?ip:Ipaddr.t
+      -> Unix.sockaddr
+      -> Lwt_unix.file_descr
+      -> socket Lwt.t
+
     val create_default
       :  ?alpn_protocols:string list
       -> certfile:string
@@ -73,6 +88,19 @@ module Client : sig
 
   module TLS : sig
     include Gluten_lwt.Client with type socket = Tls_io.descriptor
+
+    val create_full
+      :  X509.Authenticator.t
+      -> ?peer_name:[ `host ] Domain_name.t
+      -> ?ciphers:Tls.Ciphersuite.ciphersuite list
+      -> ?version:(Tls.Core.tls_version * Tls.Core.tls_version)
+      -> ?signature_algorithms:Tls.Core.signature_algorithm list
+      -> ?reneg:bool
+      -> ?certificates:Tls.Config.own_cert
+      -> ?alpn_protocols:string list
+      -> ?ip:Ipaddr.t
+      -> Lwt_unix.file_descr
+      -> socket Lwt.t
 
     val create_default
       :  ?alpn_protocols:string list
