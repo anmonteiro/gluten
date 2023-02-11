@@ -34,11 +34,8 @@ module type RUNTIME = sig
   type t
 
   val next_read_operation : t -> [ `Read | `Yield | `Close ]
-
   val read : t -> Bigstringaf.t -> off:int -> len:int -> int
-
   val read_eof : t -> Bigstringaf.t -> off:int -> len:int -> int
-
   val yield_reader : t -> (unit -> unit) -> unit
 
   val next_write_operation
@@ -46,18 +43,13 @@ module type RUNTIME = sig
     -> [ `Write of Bigstringaf.t Faraday.iovec list | `Yield | `Close of int ]
 
   val report_write_result : t -> [ `Ok of int | `Closed ] -> unit
-
   val yield_writer : t -> (unit -> unit) -> unit
-
   val report_exn : t -> exn -> unit
-
   val is_closed : t -> bool
-
   val shutdown : t -> unit
 end
 
 type 't runtime = (module RUNTIME with type t = 't)
-
 type impl
 
 val make : 't runtime -> 't -> impl
@@ -73,7 +65,6 @@ module Server : sig
   include RUNTIME
 
   val create : protocol:'t runtime -> 't -> t
-
   val upgrade_protocol : t -> impl -> unit
 
   type 'reqd request_handler = 'reqd Reqd.t -> unit
@@ -89,7 +80,6 @@ module Client : sig
   include RUNTIME
 
   val create : protocol:'t runtime -> 't -> t
-
   val upgrade_protocol : t -> impl -> unit
 end
 
@@ -103,7 +93,6 @@ module Buffer : sig
   type t
 
   val create : int -> t
-
   val get : t -> f:(Bigstringaf.t -> off:int -> len:int -> int) -> int
 
   val put

@@ -208,7 +208,7 @@ module Client = struct
   let shutdown t =
     t.shutdown_reader ();
     Gluten.Client.shutdown t.connection;
-    Promise.await t.shutdown_complete
+    t.shutdown_complete
 
   let is_closed t = Gluten.Client.is_closed t.connection
   let socket t = t.socket

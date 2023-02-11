@@ -56,7 +56,10 @@
    (= :version))
   (faraday-lwt-unix
    (>= "0.7.3")))
- (depopts lwt_ssl tls))
+ (depopts
+  (lwt_ssl
+   (>= "1.2.0"))
+  tls))
 
 (package
  (name gluten-mirage)

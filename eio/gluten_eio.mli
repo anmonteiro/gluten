@@ -62,7 +62,7 @@ module Client : sig
     -> t
 
   val upgrade : t -> Gluten.impl -> unit
-  val shutdown : t -> unit
+  val shutdown : t -> unit Eio.Promise.t
   val is_closed : t -> bool
   val socket : t -> Eio.Flow.two_way
 end
