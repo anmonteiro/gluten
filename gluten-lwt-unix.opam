@@ -14,7 +14,7 @@ depends: [
 ]
 depopts: [
   "lwt_ssl" {>= "1.2.0"}
-  "tls"
+  "tls-lwt"
 ]
 build: [
   ["dune" "subst"] {pinned}
