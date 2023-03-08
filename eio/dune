@@ -1,4 +1,4 @@
 (library
  (name gluten_eio)
  (public_name gluten-eio)
- (libraries gluten unix eio bigstringaf))
+ (libraries gluten unix eio eio.unix bigstringaf))

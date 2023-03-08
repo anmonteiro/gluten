@@ -55,6 +55,7 @@ module IO_loop = struct
         | exception
             ( End_of_file
             | Unix.Unix_error (ENOTCONN, _, _)
+            | Eio.Io (Eio.Exn.X (Eio_unix.Unix_error (_, _, _)), _)
             | Eio.Io (Eio.Net.E (Connection_reset _), _) ) ->
           (* TODO(anmonteiro): logging? *)
           k `Eof)
@@ -70,16 +71,19 @@ module IO_loop = struct
       read flow buffer
 
   let shutdown flow cmd =
-    try Eio.Flow.shutdown flow cmd with Unix.Unix_error (ENOTCONN, _, _) -> ()
+    try Eio.Flow.shutdown flow cmd with
+    | Unix.Unix_error (ENOTCONN, _, _)
+    | Eio.Io (Eio.Exn.X (Eio_unix.Unix_error (ENOTCONN, _, _)), _) ->
+      ()
 
-  let start
-      : type t.
-        (module Gluten.RUNTIME with type t = t)
-        -> read_buffer_size:int
-        -> cancel:unit Promise.t
-        -> t
-        -> #Eio.Flow.two_way
-        -> unit
+  let start :
+      type t.
+      (module Gluten.RUNTIME with type t = t)
+      -> read_buffer_size:int
+      -> cancel:unit Promise.t
+      -> t
+      -> #Eio.Flow.two_way
+      -> unit
     =
    fun (module Runtime) ~read_buffer_size ~cancel t socket ->
     let read_buffer = Buffer.create read_buffer_size in
