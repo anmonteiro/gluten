@@ -78,11 +78,12 @@ module Io : Gluten_async_intf.IO with type 'a socket = 'a descriptor = struct
     closed
 end
 
-let connect
-    :  config:Tls.Config.client
+let connect :
+     config:Tls.Config.client
     -> socket:([ `Unconnected ], ([< Socket.Address.t ] as 'a)) Socket.t
     -> where_to_connect:'a Tcp.Where_to_connect.t
-    -> host:[ `host ] Domain_name.t option -> 'a descriptor Deferred.t
+    -> host:[ `host ] Domain_name.t option
+    -> 'a descriptor Deferred.t
   =
  fun ~config ~socket ~where_to_connect ~host ->
   Tls_async.connect ~socket config where_to_connect ~host >>= fun res ->
@@ -99,10 +100,12 @@ let connect
 
 let null_auth ?ip:_ ~host:_ _ = Ok None
 
-let make_default_client
-    :  ?alpn_protocols:string list -> ?host:[ `host ] Domain_name.t
+let make_default_client :
+     ?alpn_protocols:string list
+    -> ?host:[ `host ] Domain_name.t
     -> ([ `Unconnected ], ([< Socket.Address.t ] as 'b)) Socket.t
-    -> 'b Tcp.Where_to_connect.t -> 'b descriptor Deferred.t
+    -> 'b Tcp.Where_to_connect.t
+    -> 'b descriptor Deferred.t
   =
  fun ?alpn_protocols ?host socket where_to_connect ->
   let config = Tls.Config.client ?alpn_protocols ~authenticator:null_auth () in

@@ -31,10 +31,10 @@
  *---------------------------------------------------------------------------*)
 
 module Buffered_flow : sig
-  type 'a t = {
-    flow : 'a;
-    mutable buf : Cstruct.t;
-  }
+  type 'a t =
+    { flow : 'a
+    ; mutable buf : Cstruct.t
+    }
 
   val create : 'a -> 'a t
 end

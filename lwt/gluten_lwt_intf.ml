@@ -32,34 +32,31 @@
 
 module type IO = sig
   type socket
-
   type addr
 
-  val read
-    :  socket
+  val read :
+     socket
     -> Bigstringaf.t
     -> off:int
     -> len:int
     -> [ `Eof | `Ok of int ] Lwt.t
   (** The region [(off, off + len)] is where read bytes can be written to *)
 
-  val writev
-    :  socket
+  val writev :
+     socket
     -> Faraday.bigstring Faraday.iovec list
     -> [ `Closed | `Ok of int ] Lwt.t
 
   val shutdown_receive : socket -> unit
-
   val close : socket -> unit Lwt.t
 end
 
 module type Server = sig
   type socket
-
   type addr
 
-  val create_upgradable_connection_handler
-    :  read_buffer_size:int
+  val create_upgradable_connection_handler :
+     read_buffer_size:int
     -> protocol:'t Gluten.runtime
     -> create_protocol:(('reqd -> unit) -> 't)
     -> request_handler:(addr -> 'reqd Gluten.Server.request_handler)
@@ -67,8 +64,8 @@ module type Server = sig
     -> socket
     -> unit Lwt.t
 
-  val create_connection_handler
-    :  read_buffer_size:int
+  val create_connection_handler :
+     read_buffer_size:int
     -> protocol:'t Gluten.runtime
     -> 't
     -> addr
@@ -78,21 +75,17 @@ end
 
 module type Client = sig
   type t
-
   type socket
 
-  val create
-    :  read_buffer_size:int
+  val create :
+     read_buffer_size:int
     -> protocol:'t Gluten.runtime
     -> 't
     -> socket
     -> t Lwt.t
 
   val upgrade : t -> Gluten.impl -> unit
-
   val shutdown : t -> unit Lwt.t
-
   val is_closed : t -> bool
-
   val socket : t -> socket
 end

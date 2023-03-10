@@ -38,14 +38,14 @@ module Buffer = Gluten.Buffer
 include Gluten_lwt_intf
 
 module IO_loop = struct
-  let start
-      : type t fd.
-        (module IO with type socket = fd)
-        -> (module Gluten.RUNTIME with type t = t)
-        -> t
-        -> read_buffer_size:int
-        -> fd
-        -> unit Lwt.t
+  let start :
+      type t fd.
+      (module IO with type socket = fd)
+      -> (module Gluten.RUNTIME with type t = t)
+      -> t
+      -> read_buffer_size:int
+      -> fd
+      -> unit Lwt.t
     =
    fun (module Io) (module Runtime) t ~read_buffer_size socket ->
     let read_buffer = Buffer.create read_buffer_size in

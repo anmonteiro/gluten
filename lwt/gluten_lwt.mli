@@ -34,9 +34,7 @@
  *---------------------------------------------------------------------------*)
 
 module type IO = Gluten_lwt_intf.IO
-
 module type Server = Gluten_lwt_intf.Server
-
 module type Client = Gluten_lwt_intf.Client
 
 module Server (Io : IO) :

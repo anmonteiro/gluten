@@ -38,8 +38,8 @@ module type RUNTIME = sig
   val read_eof : t -> Bigstringaf.t -> off:int -> len:int -> int
   val yield_reader : t -> (unit -> unit) -> unit
 
-  val next_write_operation
-    :  t
+  val next_write_operation :
+     t
     -> [ `Write of Bigstringaf.t Faraday.iovec list | `Yield | `Close of int ]
 
   val report_write_result : t -> [ `Ok of int | `Closed ] -> unit
@@ -99,12 +99,12 @@ module Server = struct
 
   type 'reqd request_handler = 'reqd Reqd.t -> unit
 
-  let create_upgradable
-      : type t' reqd.
-        protocol:t' runtime
-        -> create:((reqd -> unit) -> t')
-        -> reqd request_handler
-        -> t
+  let create_upgradable :
+      type t' reqd.
+      protocol:t' runtime
+      -> create:((reqd -> unit) -> t')
+      -> reqd request_handler
+      -> t
     =
    fun ~protocol ~create request_handler ->
     let rec t =
