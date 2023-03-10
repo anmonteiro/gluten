@@ -83,6 +83,8 @@ module Server = struct
   module TLS = struct
     include Gluten_lwt.Server (Tls_io.Io)
 
+    let create_full ?ciphers ?version ?signature_algorithms ?reneg ?certificates ?acceptable_cas ?authenticator ?alpn_protocols ?zero_rtt ?ip client_addr socket =
+      Tls_io.make_full_server ?ciphers ?version ?signature_algorithms ?reneg ?certificates ?acceptable_cas ?authenticator ?alpn_protocols ?zero_rtt ?ip client_addr socket
     let create_default ?alpn_protocols ~certfile ~keyfile =
       let make_tls_server =
         Tls_io.make_server ?alpn_protocols ~certfile ~keyfile
@@ -107,6 +109,8 @@ module Client = struct
   module TLS = struct
     include Gluten_lwt.Client (Tls_io.Io)
 
+    let create_full authenticator ?peer_name ?ciphers ?version ?signature_algorithms ?reneg ?certificates ?alpn_protocols ?ip socket =
+      Tls_io.make_full_client authenticator ?peer_name ?ciphers ?version ?signature_algorithms ?reneg ?certificates ?alpn_protocols ?ip socket
     let create_default ?alpn_protocols socket =
       Tls_io.make_client ?alpn_protocols socket
   end
