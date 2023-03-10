@@ -39,13 +39,13 @@ module Buffer = Gluten.Buffer
 module Make_IO_Loop (Io : Gluten_async_intf.IO) = struct
   type 'a fd = 'a Io.socket
 
-  let start
-      : type t.
-        (module Gluten.RUNTIME with type t = t)
-        -> t
-        -> read_buffer_size:int
-        -> 'a fd
-        -> unit Deferred.t
+  let start :
+      type t.
+      (module Gluten.RUNTIME with type t = t)
+      -> t
+      -> read_buffer_size:int
+      -> 'a fd
+      -> unit Deferred.t
     =
    fun (module Runtime) t ~read_buffer_size socket ->
     let read_buffer = Buffer.create read_buffer_size in

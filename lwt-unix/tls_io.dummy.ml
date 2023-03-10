@@ -36,15 +36,11 @@ module Io :
   Gluten_lwt.IO with type socket = descriptor and type addr = Unix.sockaddr =
 struct
   type socket = descriptor
-
   type addr = Unix.sockaddr
 
   let read _ _bigstring ~off:_ ~len:_ = Lwt.fail_with "Tls not available"
-
   let writev _ _iovecs = Lwt.fail_with "Tls not available"
-
   let shutdown_receive _ = failwith "Tls not available"
-
   let close _ = Lwt.fail_with "Tls not available"
 end
 

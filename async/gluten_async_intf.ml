@@ -35,16 +35,16 @@ open Async
 module type IO = sig
   type 'a socket constraint 'a = [< Socket.Address.t ]
 
-  val read
-    :  _ socket
+  val read :
+     _ socket
     -> Bigstringaf.t
     -> off:int
     -> len:int
     -> [ `Eof | `Ok of int ] Deferred.t
   (** The region [(off, off + len)] is where read bytes can be written to *)
 
-  val writev
-    :  _ socket
+  val writev :
+     _ socket
     -> Faraday.bigstring Faraday.iovec list
     -> [ `Closed | `Ok of int ] Deferred.t
 
@@ -55,8 +55,8 @@ end
 module type Server = sig
   type 'a socket constraint 'a = [< Socket.Address.t ]
 
-  val create_upgradable_connection_handler
-    :  read_buffer_size:int
+  val create_upgradable_connection_handler :
+     read_buffer_size:int
     -> protocol:'t Gluten.runtime
     -> create_protocol:(('reqd -> unit) -> 't)
     -> request_handler:('a -> 'reqd Gluten.Server.request_handler)
@@ -64,8 +64,8 @@ module type Server = sig
     -> 'a socket
     -> unit Deferred.t
 
-  val create_connection_handler
-    :  read_buffer_size:int
+  val create_connection_handler :
+     read_buffer_size:int
     -> protocol:'t Gluten.runtime
     -> 't
     -> 'a
@@ -77,8 +77,8 @@ module type Client = sig
   type 'a t constraint 'a = [< Socket.Address.t ]
   type 'a socket constraint 'a = [< Socket.Address.t ]
 
-  val create
-    :  read_buffer_size:int
+  val create :
+     read_buffer_size:int
     -> protocol:'t Gluten.runtime
     -> 't
     -> 'a socket

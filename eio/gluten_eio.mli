@@ -31,16 +31,16 @@
  *---------------------------------------------------------------------------*)
 
 module Server : sig
-  val create_connection_handler
-    :  read_buffer_size:int
+  val create_connection_handler :
+     read_buffer_size:int
     -> protocol:'t Gluten.runtime
     -> 't
     -> Eio.Net.Sockaddr.stream
     -> Eio.Flow.two_way
     -> unit
 
-  val create_upgradable_connection_handler
-    :  read_buffer_size:int
+  val create_upgradable_connection_handler :
+     read_buffer_size:int
     -> protocol:'t Gluten.runtime
     -> create_protocol:(('reqd -> unit) -> 't)
     -> request_handler:
@@ -53,8 +53,8 @@ end
 module Client : sig
   type t
 
-  val create
-    :  sw:Eio.Switch.t
+  val create :
+     sw:Eio.Switch.t
     -> read_buffer_size:int
     -> protocol:'t Gluten.runtime
     -> 't

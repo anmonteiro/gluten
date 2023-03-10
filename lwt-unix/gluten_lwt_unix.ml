@@ -36,13 +36,11 @@ module Io :
     with type socket = Lwt_unix.file_descr
      and type addr = Unix.sockaddr = struct
   type socket = Lwt_unix.file_descr
-
   type addr = Unix.sockaddr
 
   let close socket =
     match Lwt_unix.state socket with
-    | Closed ->
-      Lwt.return_unit
+    | Closed -> Lwt.return_unit
     | _ ->
       Lwt.catch
         (fun () ->
@@ -54,13 +52,12 @@ module Io :
     Lwt.catch
       (fun () ->
         Lwt_bytes.read socket bigstring off len >|= function
-        | 0 ->
-          `Eof
-        | n ->
-          `Ok n)
+        | 0 -> `Eof
+        | n -> `Ok n)
       (function
         | Unix.Unix_error (Unix.EBADF, _, _) ->
-          (* If the socket is closed we need to feed EOF to the state machine. *)
+          (* If the socket is closed we need to feed EOF to the state
+             machine. *)
           Lwt.return `Eof
         | exn ->
           Lwt.async (fun () -> close socket);
@@ -69,10 +66,10 @@ module Io :
   let writev socket = Faraday_lwt_unix.writev_of_fd socket
 
   let shutdown socket command =
-    if Lwt_unix.state socket <> Lwt_unix.Closed then
+    if Lwt_unix.state socket <> Lwt_unix.Closed
+    then
       try Lwt_unix.shutdown socket command with
-      | Unix.Unix_error (Unix.ENOTCONN, _, _) ->
-        ()
+      | Unix.Unix_error (Unix.ENOTCONN, _, _) -> ()
 
   let shutdown_receive socket = shutdown socket Unix.SHUTDOWN_RECEIVE
 end

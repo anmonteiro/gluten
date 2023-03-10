@@ -38,7 +38,6 @@ module Io :
   Gluten_lwt.IO with type socket = descriptor and type addr = Unix.sockaddr =
 struct
   type socket = descriptor
-
   type addr = Unix.sockaddr
 
   let close = Tls_lwt.Unix.close
@@ -47,13 +46,10 @@ struct
     Lwt.catch
       (fun () ->
         Tls_lwt.Unix.read_bytes tls bigstring off len >|= function
-        | 0 ->
-          `Eof
-        | n ->
-          `Ok n)
+        | 0 -> `Eof
+        | n -> `Ok n)
       (function
-        | Unix.Unix_error (Unix.EBADF, _, _) ->
-          Lwt.return `Eof
+        | Unix.Unix_error (Unix.EBADF, _, _) -> Lwt.return `Eof
         | exn ->
           Lwt.async (fun () -> close tls);
           Lwt.fail exn)
@@ -72,8 +68,7 @@ struct
       (function
         | Unix.Unix_error (Unix.EBADF, "check_descriptor", _) ->
           Lwt.return `Closed
-        | exn ->
-          Lwt.fail exn)
+        | exn -> Lwt.fail exn)
 
   let shutdown_receive _tls = ()
 end

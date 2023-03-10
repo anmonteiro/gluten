@@ -33,10 +33,10 @@
 open Lwt.Infix
 
 module Buffered_flow = struct
-  type 'a t = {
-    flow : 'a;
-    mutable buf : Cstruct.t;
-  }
+  type 'a t =
+    { flow : 'a
+    ; mutable buf : Cstruct.t
+    }
 
   let create flow = { flow; buf = Cstruct.empty }
 end
@@ -55,8 +55,7 @@ module Make_IO (Flow : Mirage_flow.S) :
   let buffered_read (sock : socket) len =
     let trunc buf =
       match Cstruct.length buf > len with
-      | false ->
-        buf
+      | false -> buf
       | true ->
         let head, rest = Cstruct.split buf len in
         sock.buf <- rest;
@@ -64,33 +63,33 @@ module Make_IO (Flow : Mirage_flow.S) :
     in
     let buffered_data =
       match Cstruct.is_empty sock.buf with
-      | true ->
-        None
+      | true -> None
       | false ->
         let buf = sock.buf in
         sock.buf <- Cstruct.empty;
         Some (Ok (`Data (trunc buf)))
     in
     match buffered_data with
-    | Some data ->
-      Lwt.return data
-    | None -> (
+    | Some data -> Lwt.return data
+    | None ->
       Flow.read sock.flow >|= fun data ->
       assert (Cstruct.is_empty sock.buf);
-      match data with Ok (`Data buf) -> Ok (`Data (trunc buf)) | x -> x)
+      (match data with Ok (`Data buf) -> Ok (`Data (trunc buf)) | x -> x)
 
   let read sock bigstring ~off ~len =
     Lwt.catch
       (fun () ->
         buffered_read sock len >|= function
         | Ok (`Data buf) ->
-          Bigstringaf.blit buf.buffer ~src_off:buf.off bigstring ~dst_off:off
+          Bigstringaf.blit
+            buf.buffer
+            ~src_off:buf.off
+            bigstring
+            ~dst_off:off
             ~len:buf.len;
           `Ok buf.len
-        | Ok `Eof ->
-          `Eof
-        | Error error ->
-          failwith (Format.asprintf "%a" Flow.pp_error error))
+        | Ok `Eof -> `Eof
+        | Error error -> failwith (Format.asprintf "%a" Flow.pp_error error))
       (fun exn -> shutdown sock >>= fun () -> Lwt.fail exn)
 
   let writev (sock : socket) iovecs =
@@ -101,17 +100,16 @@ module Make_IO (Flow : Mirage_flow.S) :
         (fun dst_off { Faraday.buffer; off; len } ->
           Bigstringaf.blit buffer ~src_off:off data.buffer ~dst_off ~len;
           dst_off + len)
-        0 iovecs
+        0
+        iovecs
     in
     assert (data_len = copy_len);
     Lwt.catch
       (fun () ->
         Flow.write sock.flow data >|= fun x ->
         match x with
-        | Ok () ->
-          `Ok data_len
-        | Error `Closed ->
-          `Closed
+        | Ok () -> `Ok data_len
+        | Error `Closed -> `Closed
         | Error other_error ->
           raise (Failure (Format.asprintf "%a" Flow.pp_write_error other_error)))
       (fun exn -> shutdown sock >>= fun () -> Lwt.fail exn)
