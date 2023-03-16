@@ -7,16 +7,17 @@ license: "BSD-3-clause"
 homepage: "https://github.com/anmonteiro/gluten"
 bug-reports: "https://github.com/anmonteiro/gluten/issues"
 depends: [
-  "dune" {>= "2.0"}
+  "dune" {>= "2.7"}
   "ocaml" {>= "4.08.0"}
   "gluten" {= version}
   "faraday-async" {>= "0.7.3"}
   "async" {>= "v0.15.0"}
   "core" {>= "v0.15.0"}
+  "odoc" {with-doc}
 ]
 depopts: ["async_ssl" "tls-async"]
 build: [
-  ["dune" "subst"] {pinned}
+  ["dune" "subst"] {dev}
   [
     "dune"
     "build"
