@@ -1,3 +1,13 @@
+0.4.1 2023-03-16
+--------------
+
+- gluten-lwt-unix: require tls-lwt `>= 0.16`
+  ([#53](https://github.com/anmonteiro/gluten/pull/53))
+- gluten-eio: adapt to `Eio.Io` errors
+  ([#54](https://github.com/anmonteiro/gluten/pull/54))
+- gluten-eio: return a `Eio.Promise.t` from `Gluten_eio.Client.shutdown`
+  ([f8b88c485](https://github.com/anmonteiro/gluten/commit/f8b88c485beb473af97de7b39461fb60a56cff3f))
+
 0.4.0 2023-02-11
 --------------
 

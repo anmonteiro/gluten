@@ -59,7 +59,7 @@
  (depopts
   (lwt_ssl
    (>= "1.2.0"))
-  tls))
+  tls-lwt))
 
 (package
  (name gluten-mirage)
