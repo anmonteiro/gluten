@@ -46,10 +46,10 @@ struct
     Lwt.catch
       (fun () ->
         Tls_lwt.Unix.read_bytes tls bigstring off len >|= function
-        | 0 -> `Eof
-        | n -> `Ok n)
+        | 0 -> raise End_of_file
+        | n -> n)
       (function
-        | Unix.Unix_error (Unix.EBADF, _, _) -> Lwt.return `Eof
+        | Unix.Unix_error (Unix.EBADF, _, _) -> Lwt.fail End_of_file
         | exn ->
           Lwt.async (fun () -> close tls);
           Lwt.fail exn)

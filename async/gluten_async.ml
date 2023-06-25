@@ -39,6 +39,14 @@ module Buffer = Gluten.Buffer
 module Make_IO_Loop (Io : Gluten_async_intf.IO) = struct
   type 'a fd = 'a Io.socket
 
+  let read socket read_buffer =
+    let ivar = Ivar.create () in
+    Buffer.put
+      ~f:(fun buf ~off ~len k -> Async.upon (Io.read socket buf ~off ~len) k)
+      read_buffer
+      (fun n -> Ivar.fill ivar n);
+    Ivar.read ivar
+
   let start :
       type t.
       (module Gluten.RUNTIME with type t = t)
@@ -51,27 +59,28 @@ module Make_IO_Loop (Io : Gluten_async_intf.IO) = struct
     let read_buffer = Buffer.create read_buffer_size in
     let read_complete = Ivar.create () in
     let rec reader_thread () =
-      match Runtime.next_read_operation t with
-      | `Read ->
-        Buffer.put
-          ~f:(fun buf ~off ~len k ->
-            Async.upon (Io.read socket buf ~off ~len) k)
-          read_buffer
-          (function
-            | `Eof ->
-              Buffer.get read_buffer ~f:(fun bigstring ~off ~len ->
-                  Runtime.read_eof t bigstring ~off ~len)
-              |> ignore;
-              reader_thread ()
-            | `Ok _ ->
-              Buffer.get read_buffer ~f:(fun bigstring ~off ~len ->
-                  Runtime.read t bigstring ~off ~len)
-              |> ignore;
-              reader_thread ())
-      | `Yield -> Runtime.yield_reader t reader_thread
-      | `Close ->
-        Ivar.fill read_complete ();
-        Io.shutdown_receive socket
+      let rec reader_thread_step () =
+        match Runtime.next_read_operation t with
+        | `Read ->
+          Monitor.try_with (fun () -> read socket read_buffer) >>= ( function
+          | Ok _n ->
+            Buffer.get read_buffer ~f:(fun bigstring ~off ~len ->
+                Runtime.read t bigstring ~off ~len)
+            |> ignore;
+            reader_thread_step ()
+          | Error End_of_file ->
+            let (_ : int) = Buffer.get read_buffer ~f:(Runtime.read_eof t) in
+            reader_thread_step ()
+          | Error exn -> raise exn )
+        | `Yield ->
+          Runtime.yield_reader t reader_thread;
+          Deferred.return ()
+        | `Close ->
+          Ivar.fill read_complete ();
+          Io.shutdown_receive socket;
+          Deferred.return ()
+      in
+      Deferred.don't_wait_for (reader_thread_step ())
     in
     let writev = Io.writev socket in
     let write_complete = Ivar.create () in
@@ -139,12 +148,12 @@ struct
     let rec finish fd buffer result =
       let open Unix.Error in
       match result with
-      | `Already_closed | `Ok 0 -> return `Eof
-      | `Ok n -> return (`Ok n)
+      | `Already_closed | `Ok 0 -> raise End_of_file
+      | `Ok n -> return n
       | `Error (Unix.Unix_error ((EWOULDBLOCK | EAGAIN), _, _)) ->
         Fd.ready_to fd `Read >>= ( function
         | `Bad_fd -> badfd fd
-        | `Closed -> return `Eof
+        | `Closed -> raise End_of_file
         | `Ready -> go fd buffer )
       | `Error (Unix.Unix_error (EBADF, _, _)) -> badfd fd
       | `Error exn ->

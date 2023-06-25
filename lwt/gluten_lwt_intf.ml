@@ -34,12 +34,7 @@ module type IO = sig
   type socket
   type addr
 
-  val read :
-     socket
-    -> Bigstringaf.t
-    -> off:int
-    -> len:int
-    -> [ `Eof | `Ok of int ] Lwt.t
+  val read : socket -> Bigstringaf.t -> off:int -> len:int -> int Lwt.t
   (** The region [(off, off + len)] is where read bytes can be written to *)
 
   val writev :

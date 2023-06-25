@@ -87,8 +87,8 @@ module Make_IO (Flow : Mirage_flow.S) :
             bigstring
             ~dst_off:off
             ~len:buf.len;
-          `Ok buf.len
-        | Ok `Eof -> `Eof
+          buf.len
+        | Ok `Eof -> raise End_of_file
         | Error error -> failwith (Format.asprintf "%a" Flow.pp_error error))
       (fun exn -> shutdown sock >>= fun () -> Lwt.fail exn)
 

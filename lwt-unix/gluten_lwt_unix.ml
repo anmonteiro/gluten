@@ -52,13 +52,13 @@ module Io :
     Lwt.catch
       (fun () ->
         Lwt_bytes.read socket bigstring off len >|= function
-        | 0 -> `Eof
-        | n -> `Ok n)
+        | 0 -> raise End_of_file
+        | n -> n)
       (function
         | Unix.Unix_error (Unix.EBADF, _, _) ->
           (* If the socket is closed we need to feed EOF to the state
              machine. *)
-          Lwt.return `Eof
+          Lwt.fail End_of_file
         | exn ->
           Lwt.async (fun () -> close socket);
           Lwt.fail exn)

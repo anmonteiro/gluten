@@ -97,12 +97,7 @@ module Buffer : sig
 
   val put :
      t
-    -> f:
-         (Bigstringaf.t
-          -> off:int
-          -> len:int
-          -> ([ `Eof | `Ok of int ] -> unit)
-          -> unit)
-    -> ([ `Eof | `Ok of int ] -> unit)
+    -> f:(Bigstringaf.t -> off:int -> len:int -> (int -> unit) -> unit)
+    -> (int -> unit)
     -> unit
 end
