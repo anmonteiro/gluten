@@ -207,7 +207,7 @@ module Client = struct
                       connection
                       socket))));
     { connection
-    ; socket
+    ; socket = (socket :> Eio.Flow.two_way)
     ; shutdown_reader = Promise.resolve resolve_cancel_reader
     ; shutdown_complete = shutdown_p
     }
