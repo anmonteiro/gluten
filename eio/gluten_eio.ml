@@ -56,15 +56,12 @@ module IO_loop = struct
       (Promise.resolve u);
     Promise.await p
 
-  let rec read flow buffer =
+  let read flow buffer =
     match read_once flow buffer with
     | r -> r
-    | exception Unix.Unix_error (Unix.EAGAIN, _, _) ->
-      Fiber.yield ();
-      read flow buffer
     | exception
         ( Unix.Unix_error (ENOTCONN, _, _)
-        (* | Eio.Io (Eio.Exn.X (Eio_unix.Unix_error (_, _, _)), _) *)
+        | Eio.Io (Eio.Exn.X (Eio_unix.Unix_error (_, _, _)), _)
         | Eio.Io (Eio.Net.E (Connection_reset _), _) ) ->
       (* TODO(anmonteiro): logging? *)
       raise End_of_file
