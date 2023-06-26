@@ -38,6 +38,15 @@ module Buffer = Gluten.Buffer
 include Gluten_lwt_intf
 
 module IO_loop = struct
+  let read (type fd) (module Io : IO with type socket = fd) socket read_buffer =
+    let p, u = Lwt.wait () in
+    Buffer.put
+      ~f:(fun buf ~off ~len k ->
+        Lwt.on_success (Io.read socket buf ~off ~len) k)
+      read_buffer
+      (fun n -> Lwt.wakeup_later u n);
+    p
+
   let start :
       type t fd.
       (module IO with type socket = fd)
@@ -54,26 +63,28 @@ module IO_loop = struct
       let rec read_loop_step () =
         match Runtime.next_read_operation t with
         | `Read ->
-          Buffer.put
-            ~f:(fun buf ~off ~len k ->
-              Lwt.on_success (Io.read socket buf ~off ~len) k)
-            read_buffer
+          Lwt.catch
+            (fun () ->
+              read (module Io) socket read_buffer >>= fun (_ : int) ->
+              let (_ : int) = Buffer.get read_buffer ~f:(Runtime.read t) in
+              read_loop_step ())
             (function
-              | `Eof ->
+              | End_of_file ->
                 let (_ : int) =
                   Buffer.get read_buffer ~f:(Runtime.read_eof t)
                 in
                 read_loop_step ()
-              | `Ok _ ->
-                let (_ : int) = Buffer.get read_buffer ~f:(Runtime.read t) in
-                read_loop_step ())
-        | `Yield -> Runtime.yield_reader t read_loop
+              | exn -> Lwt.fail exn)
+        | `Yield ->
+          Runtime.yield_reader t read_loop;
+          Lwt.return_unit
         | `Close ->
           Lwt.wakeup_later notify_read_loop_exited ();
-          Io.shutdown_receive socket
+          Io.shutdown_receive socket;
+          Lwt.return_unit
       in
       Lwt.async (fun () ->
-          Lwt.catch (Lwt.wrap1 read_loop_step) (fun exn ->
+          Lwt.catch read_loop_step (fun exn ->
               Runtime.report_exn t exn;
               Lwt.return_unit))
     in

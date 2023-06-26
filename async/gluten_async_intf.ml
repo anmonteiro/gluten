@@ -35,12 +35,7 @@ open Async
 module type IO = sig
   type 'a socket constraint 'a = [< Socket.Address.t ]
 
-  val read :
-     _ socket
-    -> Bigstringaf.t
-    -> off:int
-    -> len:int
-    -> [ `Eof | `Ok of int ] Deferred.t
+  val read : _ socket -> Bigstringaf.t -> off:int -> len:int -> int Deferred.t
   (** The region [(off, off + len)] is where read bytes can be written to *)
 
   val writev :

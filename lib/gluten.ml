@@ -148,12 +148,10 @@ module Buffer = struct
   let put t ~f k =
     Qe.compress t;
     let buffer = Qe.unsafe_bigarray t in
-    f buffer ~off:(Qe.length t) ~len:(Qe.available t) (function
-        | `Eof -> k `Eof
-        | `Ok n as ret ->
-          (* Increment the offset, without making a copy *)
-          let (_ : ('a, 'b) Qe.N.bigarray list) =
-            Qe.N.push_exn t ~blit ~length:(fun _ -> n) buffer
-          in
-          k ret)
+    f buffer ~off:(Qe.length t) ~len:(Qe.available t) (fun n ->
+        (* Increment the offset, without making a copy *)
+        let (_ : ('a, 'b) Qe.N.bigarray list) =
+          Qe.N.push_exn t ~blit ~length:(fun _ -> n) buffer
+        in
+        k n)
 end

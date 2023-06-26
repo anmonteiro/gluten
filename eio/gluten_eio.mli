@@ -46,7 +46,7 @@ module Server : sig
     -> request_handler:
          (Eio.Net.Sockaddr.stream -> 'reqd Gluten.Server.request_handler)
     -> Eio.Net.Sockaddr.stream
-    -> Eio.Flow.two_way
+    -> #Eio.Flow.two_way
     -> unit
 end
 
@@ -58,7 +58,7 @@ module Client : sig
     -> read_buffer_size:int
     -> protocol:'t Gluten.runtime
     -> 't
-    -> Eio.Flow.two_way
+    -> #Eio.Flow.two_way
     -> t
 
   val upgrade : t -> Gluten.impl -> unit

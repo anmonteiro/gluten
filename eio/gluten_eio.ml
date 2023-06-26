@@ -46,29 +46,25 @@ module IO_loop = struct
     | () -> `Ok lenv
     | exception End_of_file -> `Closed
 
-  let read_inner flow buffer =
+  let read_once flow buffer =
     let p, u = Promise.create () in
     Buffer.put
       ~f:(fun buf ~off ~len k ->
-        match Eio.Flow.single_read flow (Cstruct.of_bigarray buf ~off ~len) with
-        | n -> k (`Ok n)
-        | exception
-            ( End_of_file
-            | Unix.Unix_error (ENOTCONN, _, _)
-            | Eio.Io (Eio.Exn.X (Eio_unix.Unix_error (_, _, _)), _)
-            | Eio.Io (Eio.Net.E (Connection_reset _), _) ) ->
-          (* TODO(anmonteiro): logging? *)
-          k `Eof)
+        let cstruct = Cstruct.of_bigarray buf ~off ~len in
+        k (Eio.Flow.single_read flow cstruct))
       buffer
       (Promise.resolve u);
     Promise.await p
 
-  let rec read flow buffer =
-    match read_inner flow buffer with
+  let read flow buffer =
+    match read_once flow buffer with
     | r -> r
-    | exception Unix.Unix_error (Unix.EAGAIN, _, _) ->
-      Fiber.yield ();
-      read flow buffer
+    | exception
+        ( Unix.Unix_error (ENOTCONN, _, _)
+        | Eio.Io (Eio.Exn.X (Eio_unix.Unix_error (_, _, _)), _)
+        | Eio.Io (Eio.Net.E (Connection_reset _), _) ) ->
+      (* TODO(anmonteiro): logging? *)
+      raise End_of_file
 
   let shutdown flow cmd =
     try Eio.Flow.shutdown flow cmd with
@@ -91,19 +87,25 @@ module IO_loop = struct
       let rec read_loop_step () =
         match Runtime.next_read_operation t with
         | `Read ->
-          let read_result =
-            Fiber.first
-              (fun () -> read socket read_buffer)
-              (fun () ->
-                Promise.await cancel;
-                `Eof)
-          in
-          let (_ : int) =
-            Buffer.get read_buffer ~f:(fun buf ~off ~len ->
-                match read_result with
-                | `Eof -> Runtime.read_eof t buf ~off ~len
-                | `Ok _n -> Runtime.read t buf ~off ~len)
-          in
+          (match
+             Fiber.first
+               (fun () -> read socket read_buffer)
+               (fun () ->
+                 Promise.await cancel;
+                 raise End_of_file)
+           with
+          | _n ->
+            let (_ : int) =
+              Buffer.get read_buffer ~f:(fun buf ~off ~len ->
+                  Runtime.read t buf ~off ~len)
+            in
+            ()
+          | exception End_of_file ->
+            let (_ : int) =
+              Buffer.get read_buffer ~f:(fun buf ~off ~len ->
+                  Runtime.read_eof t buf ~off ~len)
+            in
+            ());
           read_loop_step ()
         | `Yield ->
           let p, u = Promise.create () in
@@ -202,7 +204,7 @@ module Client = struct
                       connection
                       socket))));
     { connection
-    ; socket
+    ; socket = (socket :> Eio.Flow.two_way)
     ; shutdown_reader = Promise.resolve resolve_cancel_reader
     ; shutdown_complete = shutdown_p
     }
