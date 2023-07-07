@@ -77,11 +77,12 @@ module IO_loop = struct
       (module Gluten.RUNTIME with type t = t)
       -> read_buffer_size:int
       -> cancel:unit Promise.t
+      -> sw:Eio.Switch.t
       -> t
       -> #Eio.Flow.two_way
       -> unit
     =
-   fun (module Runtime) ~read_buffer_size ~cancel t socket ->
+   fun (module Runtime) ~read_buffer_size ~cancel ~sw t socket ->
     let read_buffer = Buffer.create read_buffer_size in
     let rec read_loop () =
       let rec read_loop_step () =
@@ -116,7 +117,9 @@ module IO_loop = struct
       in
       match read_loop_step () with
       | () -> ()
-      | exception exn -> Runtime.report_exn t exn
+      | exception exn ->
+        Runtime.report_exn t exn;
+        Switch.fail sw exn
     in
     let rec write_loop () =
       let rec write_loop_step () =
@@ -134,7 +137,9 @@ module IO_loop = struct
       in
       match write_loop_step () with
       | () -> ()
-      | exception exn -> Runtime.report_exn t exn
+      | exception exn ->
+        Runtime.report_exn t exn;
+        Switch.fail sw exn
     in
     Fiber.both read_loop write_loop
 end
@@ -145,6 +150,7 @@ module Server = struct
   let create_connection_handler
       ~read_buffer_size
       ~protocol
+      ~sw
       connection
       _client_addr
       socket
@@ -154,14 +160,16 @@ module Server = struct
     IO_loop.start
       (module Gluten.Server)
       connection
-      ~cancel:never
       ~read_buffer_size
+      ~cancel:never
+      ~sw
       socket
 
   let create_upgradable_connection_handler
       ~read_buffer_size
       ~protocol
       ~create_protocol
+      ~sw
       ~request_handler
       (client_addr : addr)
       socket
@@ -177,6 +185,7 @@ module Server = struct
       (module Gluten.Server)
       ~read_buffer_size
       ~cancel:never
+      ~sw
       connection
       socket
 end
@@ -201,6 +210,7 @@ module Client = struct
                       (module Gluten.Client)
                       ~cancel:cancel_reader
                       ~read_buffer_size
+                      ~sw
                       connection
                       socket))));
     { connection
