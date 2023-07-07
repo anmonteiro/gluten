@@ -1,3 +1,9 @@
+Unreleased
+--------------
+
+- gluten-eio: require `~sw:Eio.Switch.t` argument and fail the switch when loop
+  raises an exception ([#61](https://github.com/anmonteiro/gluten/pull/61))
+
 0.4.1 2023-03-16
 --------------
 
