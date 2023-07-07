@@ -34,6 +34,7 @@ module Server : sig
   val create_connection_handler :
      read_buffer_size:int
     -> protocol:'t Gluten.runtime
+    -> sw:Eio.Switch.t
     -> 't
     -> Eio.Net.Sockaddr.stream
     -> Eio.Flow.two_way
@@ -43,6 +44,7 @@ module Server : sig
      read_buffer_size:int
     -> protocol:'t Gluten.runtime
     -> create_protocol:(('reqd -> unit) -> 't)
+    -> sw:Eio.Switch.t
     -> request_handler:
          (Eio.Net.Sockaddr.stream -> 'reqd Gluten.Server.request_handler)
     -> Eio.Net.Sockaddr.stream
