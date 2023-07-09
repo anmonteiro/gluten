@@ -37,7 +37,7 @@ module Server : sig
     -> sw:Eio.Switch.t
     -> 't
     -> Eio.Net.Sockaddr.stream
-    -> Eio.Flow.two_way
+    -> #Eio.Flow.two_way
     -> unit
 
   val create_upgradable_connection_handler :
