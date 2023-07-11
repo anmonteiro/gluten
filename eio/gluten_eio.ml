@@ -76,50 +76,77 @@ module IO_loop = struct
       type t.
       (module Gluten.RUNTIME with type t = t)
       -> read_buffer_size:int
-      -> cancel:unit Promise.t
+      -> read_closed:unit Promise.t * unit Promise.u
       -> sw:Eio.Switch.t
       -> t
       -> #Eio.Flow.two_way
       -> unit
     =
-   fun (module Runtime) ~read_buffer_size ~cancel ~sw t socket ->
+   fun (module Runtime) ~read_buffer_size ~read_closed ~sw t socket ->
+    let read_closed, resolve_read_closed = read_closed
+    and write_closed = ref false in
     let read_buffer = Buffer.create read_buffer_size in
-    let rec read_loop () =
-      let rec read_loop_step () =
-        match Runtime.next_read_operation t with
-        | `Read ->
-          (match
-             Fiber.first
-               (fun () -> read socket read_buffer)
-               (fun () ->
-                 Promise.await cancel;
-                 raise End_of_file)
-           with
-          | _n ->
-            let (_ : int) =
-              Buffer.get read_buffer ~f:(fun buf ~off ~len ->
-                  Runtime.read t buf ~off ~len)
-            in
-            ()
-          | exception End_of_file ->
-            let (_ : int) =
-              Buffer.get read_buffer ~f:(fun buf ~off ~len ->
-                  Runtime.read_eof t buf ~off ~len)
-            in
-            ());
-          read_loop_step ()
-        | `Yield ->
-          let p, u = Promise.create () in
-          Runtime.yield_reader t (Promise.resolve u);
-          Promise.await p;
-          read_loop ()
-        | `Close -> shutdown socket `Receive
+    let rec read_loop =
+      let read socket read_buffer =
+        Fiber.first
+          (fun () -> read socket read_buffer)
+          (fun () ->
+            Promise.await read_closed;
+            raise End_of_file)
       in
-      match read_loop_step () with
-      | () -> ()
-      | exception exn ->
-        Runtime.report_exn t exn;
-        Switch.fail sw exn
+      fun () ->
+        let rec read_loop_step () =
+          match Runtime.next_read_operation t with
+          | `Read ->
+            (match read socket read_buffer with
+            | _n ->
+              let (_ : int) =
+                Buffer.get read_buffer ~f:(fun buf ~off ~len ->
+                    Runtime.read t buf ~off ~len)
+              in
+              ()
+            | exception End_of_file ->
+              let (_ : int) =
+                Buffer.get read_buffer ~f:(fun buf ~off ~len ->
+                    Runtime.read_eof t buf ~off ~len)
+              in
+              ());
+            read_loop_step ()
+          | `Yield ->
+            let p, u = Promise.create () in
+            Runtime.yield_reader t (fun () -> Promise.resolve u ());
+            Promise.await p;
+            read_loop ()
+          | `Close ->
+            (* When closing the reader, we issue one last poll to detect when
+               the pipe has been closed from the remote end *)
+            (match Promise.is_resolved read_closed with
+            | true -> ()
+            | false ->
+              (match read socket read_buffer with
+              | _n ->
+                (* Discard any remaining bytes on the wire.
+
+                   TODO(anmonteiro): should we loop until EOF? *)
+                assert false
+              | exception (End_of_file as exn) ->
+                shutdown socket `Receive;
+                Promise.resolve resolve_read_closed ();
+                (match !write_closed with
+                | true ->
+                  (* If the write loop has finished, the loop is closing
+                     cleanly. We don't need to do anything else. *)
+                  ()
+                | false ->
+                  (* If the write loop hasn't yet finished, but we got EOF from
+                     read (i.e. socket closed), fail the switch. *)
+                  Switch.fail sw exn)))
+        in
+        match read_loop_step () with
+        | () -> ()
+        | exception exn ->
+          Runtime.report_exn t exn;
+          Switch.fail sw exn
     in
     let rec write_loop () =
       let rec write_loop_step () =
@@ -130,10 +157,12 @@ module IO_loop = struct
           write_loop_step ()
         | `Yield ->
           let p, u = Promise.create () in
-          Runtime.yield_writer t (Promise.resolve u);
+          Runtime.yield_writer t (fun () -> Promise.resolve u ());
           Promise.await p;
           write_loop ()
-        | `Close _ -> shutdown socket `Send
+        | `Close _ ->
+          write_closed := true;
+          shutdown socket `Send
       in
       match write_loop_step () with
       | () -> ()
@@ -156,13 +185,12 @@ module Server = struct
       socket
     =
     let connection = Gluten.Server.create ~protocol connection in
-    let never, _ = Promise.create () in
     IO_loop.start
       (module Gluten.Server)
-      connection
       ~read_buffer_size
-      ~cancel:never
+      ~read_closed:(Promise.create ())
       ~sw
+      connection
       socket
 
   let create_upgradable_connection_handler
@@ -174,7 +202,6 @@ module Server = struct
       (client_addr : addr)
       socket
     =
-    let never, _ = Promise.create () in
     let connection =
       Gluten.Server.create_upgradable
         ~protocol
@@ -184,7 +211,7 @@ module Server = struct
     IO_loop.start
       (module Gluten.Server)
       ~read_buffer_size
-      ~cancel:never
+      ~read_closed:(Promise.create ())
       ~sw
       connection
       socket
@@ -201,21 +228,25 @@ module Client = struct
   let create ~sw ~read_buffer_size ~protocol t socket =
     let connection = Gluten.Client.create ~protocol t in
     let shutdown_p, shutdown_u = Promise.create () in
-    let cancel_reader, resolve_cancel_reader = Promise.create () in
+    let read_closed = Promise.create () in
     Fiber.fork ~sw (fun () ->
         Fun.protect ~finally:(Promise.resolve shutdown_u) (fun () ->
             Switch.run (fun sw ->
                 Fiber.fork ~sw (fun () ->
                     IO_loop.start
                       (module Gluten.Client)
-                      ~cancel:cancel_reader
+                      ~read_closed
                       ~read_buffer_size
                       ~sw
                       connection
                       socket))));
     { connection
     ; socket = (socket :> Eio.Flow.two_way)
-    ; shutdown_reader = Promise.resolve resolve_cancel_reader
+    ; shutdown_reader =
+        (fun () ->
+          let cancel_reader, resolve_cancel_reader = read_closed in
+          if not (Promise.is_resolved cancel_reader)
+          then Promise.resolve resolve_cancel_reader ())
     ; shutdown_complete = shutdown_p
     }
 
