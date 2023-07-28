@@ -57,6 +57,7 @@ let
         faraday-async
         gluten
         async_ssl
+        tls-async
       ];
     };
 
