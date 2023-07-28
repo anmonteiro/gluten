@@ -45,7 +45,9 @@ module Io : Gluten_async_intf.IO with type 'a socket = 'a descriptor = struct
 
   let read (reader, _, _) bigstring ~off ~len =
     let bigsubstr = Bigsubstring.create ~pos:off ~len bigstring in
-    Reader.read_bigsubstring reader bigsubstr
+    Reader.read_bigsubstring reader bigsubstr >>| function
+    | `Eof -> raise End_of_file
+    | `Ok n -> n
 
   let writev (_, writer, _) iovecs =
     match Writer.is_closed writer with
