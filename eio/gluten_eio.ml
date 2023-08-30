@@ -79,7 +79,7 @@ module IO_loop = struct
       -> read_closed:unit Promise.t * unit Promise.u
       -> sw:Eio.Switch.t
       -> t
-      -> #Eio.Flow.two_way
+      -> _ Eio.Flow.two_way
       -> unit
     =
    fun (module Runtime) ~read_buffer_size ~read_closed ~sw t socket ->
@@ -220,7 +220,7 @@ end
 module Client = struct
   type t =
     { connection : Gluten.Client.t
-    ; socket : Eio.Flow.two_way
+    ; socket : Eio_unix.Net.stream_socket_ty Eio.Net.stream_socket
     ; shutdown_reader : unit -> unit
     ; shutdown_complete : unit Promise.t
     }
@@ -241,7 +241,7 @@ module Client = struct
                       connection
                       socket))));
     { connection
-    ; socket = (socket :> Eio.Flow.two_way)
+    ; socket
     ; shutdown_reader =
         (fun () ->
           let cancel_reader, resolve_cancel_reader = read_closed in
