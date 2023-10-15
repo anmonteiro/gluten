@@ -1,4 +1,4 @@
 (library
  (name gluten)
  (public_name gluten)
- (libraries bigstringaf faraday ke))
+ (libraries bigstringaf faraday))

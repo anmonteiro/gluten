@@ -31,9 +31,7 @@
   (bigstringaf
    (>= "0.4.0"))
   (faraday
-   (>= "0.7.3"))
-  (ke
-   (>= "0.5"))))
+   (>= "0.7.3"))))
 
 (package
  (name gluten-lwt)
