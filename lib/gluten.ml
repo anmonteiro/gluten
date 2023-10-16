@@ -121,37 +121,41 @@ type 'reqd reqd = 'reqd Reqd.t = private
   ; upgrade : impl -> unit
   }
 
-module Qe = Ke.Rke.Weighted
-
 module Buffer = struct
-  type t = (char, Bigarray.int8_unsigned_elt) Qe.t
+  type t =
+    { buffer :
+        (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
+    ; mutable off : int
+    ; mutable len : int
+    ; cap : int
+    }
 
-  let create capacity =
-    let queue, _ = Qe.create ~capacity Bigarray.char in
-    queue
+  let create size =
+    let buffer = Bigstringaf.create size in
+    { buffer; off = 0; len = 0; cap = size }
+
+  let compress t =
+    if t.len = 0
+    then (
+      t.off <- 0;
+      t.len <- 0)
+    else if t.off > 0
+    then (
+      Bigstringaf.blit t.buffer ~src_off:t.off t.buffer ~dst_off:0 ~len:t.len;
+      t.off <- 0)
 
   let get t ~f =
-    match Qe.N.peek t with
-    | [] -> f Bigstringaf.empty ~off:0 ~len:0
-    | [ slice ] ->
-      assert (Bigstringaf.length slice = Qe.length t);
-      let n = f slice ~off:0 ~len:(Bigstringaf.length slice) in
-      Qe.N.shift_exn t n;
-      n
-    | _ :: _ ->
-      (* Should never happen because we compress on every `put`, and therefore
-       * the Queue never wraps around to the beginning. *)
-      assert false
-
-  let blit _src _off _dst _dst_off _len = ()
+    let n = f t.buffer ~off:t.off ~len:t.len in
+    t.off <- t.off + n;
+    t.len <- t.len - n;
+    if t.len = 0 then t.off <- 0;
+    n
 
   let put t ~f k =
-    Qe.compress t;
-    let buffer = Qe.unsafe_bigarray t in
-    f buffer ~off:(Qe.length t) ~len:(Qe.available t) (fun n ->
-        (* Increment the offset, without making a copy *)
-        let (_ : ('a, 'b) Qe.N.bigarray list) =
-          Qe.N.push_exn t ~blit ~length:(fun _ -> n) buffer
-        in
-        k n)
+    compress t;
+    let off = t.off + t.len in
+    let len = t.cap - t.len - t.off in
+    f t.buffer ~off ~len (fun n ->
+      t.len <- t.len + n;
+      k n)
 end

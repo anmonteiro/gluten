@@ -5,6 +5,8 @@ Unreleased
   raises an exception ([#61](https://github.com/anmonteiro/gluten/pull/61))
 - gluten-eio: handle peer disconnects
   ([#60](https://github.com/anmonteiro/gluten/pull/60))
+- gluten: replace `Gluten.Buffer` implementation and drop the `Ke` dependency
+  ([#67](https://github.com/anmonteiro/gluten/pull/67))
 
 0.4.1 2023-03-16
 --------------
