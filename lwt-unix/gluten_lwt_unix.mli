@@ -33,14 +33,14 @@
 module Server : sig
   include
     Gluten_lwt.Server
-      with type socket = Lwt_unix.file_descr
-       and type addr = Unix.sockaddr
+    with type socket = Lwt_unix.file_descr
+     and type addr = Unix.sockaddr
 
   module TLS : sig
     include
       Gluten_lwt.Server
-        with type socket = Tls_io.descriptor
-         and type addr = Unix.sockaddr
+      with type socket = Tls_io.descriptor
+       and type addr = Unix.sockaddr
 
     val create_default :
        ?alpn_protocols:string list
@@ -54,8 +54,8 @@ module Server : sig
   module SSL : sig
     include
       Gluten_lwt.Server
-        with type socket = Ssl_io.descriptor
-         and type addr = Unix.sockaddr
+      with type socket = Ssl_io.descriptor
+       and type addr = Unix.sockaddr
 
     val create_default :
        ?alpn_protocols:string list

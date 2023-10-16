@@ -38,7 +38,7 @@ module IO_loop = struct
     let lenv, cstructs =
       List.fold_left_map
         (fun acc { Faraday.buffer; off; len } ->
-          acc + len, Cstruct.of_bigarray buffer ~off ~len)
+           acc + len, Cstruct.of_bigarray buffer ~off ~len)
         0
         iovecs
     in
@@ -91,8 +91,8 @@ module IO_loop = struct
         Fiber.first
           (fun () -> read socket read_buffer)
           (fun () ->
-            Promise.await read_closed;
-            raise End_of_file)
+             Promise.await read_closed;
+             raise End_of_file)
       in
       fun () ->
         let rec read_loop_step () =
@@ -102,13 +102,13 @@ module IO_loop = struct
             | _n ->
               let (_ : int) =
                 Buffer.get read_buffer ~f:(fun buf ~off ~len ->
-                    Runtime.read t buf ~off ~len)
+                  Runtime.read t buf ~off ~len)
               in
               ()
             | exception End_of_file ->
               let (_ : int) =
                 Buffer.get read_buffer ~f:(fun buf ~off ~len ->
-                    Runtime.read_eof t buf ~off ~len)
+                  Runtime.read_eof t buf ~off ~len)
               in
               ());
             read_loop_step ()
@@ -230,16 +230,16 @@ module Client = struct
     let shutdown_p, shutdown_u = Promise.create () in
     let read_closed = Promise.create () in
     Fiber.fork ~sw (fun () ->
-        Fun.protect ~finally:(Promise.resolve shutdown_u) (fun () ->
-            Switch.run (fun sw ->
-                Fiber.fork ~sw (fun () ->
-                    IO_loop.start
-                      (module Gluten.Client)
-                      ~read_closed
-                      ~read_buffer_size
-                      ~sw
-                      connection
-                      socket))));
+      Fun.protect ~finally:(Promise.resolve shutdown_u) (fun () ->
+        Switch.run (fun sw ->
+          Fiber.fork ~sw (fun () ->
+            IO_loop.start
+              (module Gluten.Client)
+              ~read_closed
+              ~read_buffer_size
+              ~sw
+              connection
+              socket))));
     { connection
     ; socket
     ; shutdown_reader =

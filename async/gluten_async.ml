@@ -65,7 +65,7 @@ module Make_IO_Loop (Io : Gluten_async_intf.IO) = struct
           Monitor.try_with (fun () -> read socket read_buffer) >>= ( function
           | Ok _n ->
             Buffer.get read_buffer ~f:(fun bigstring ~off ~len ->
-                Runtime.read t bigstring ~off ~len)
+              Runtime.read t bigstring ~off ~len)
             |> ignore;
             reader_thread_step ()
           | Error End_of_file ->
@@ -97,7 +97,7 @@ module Make_IO_Loop (Io : Gluten_async_intf.IO) = struct
     Scheduler.within ~monitor:conn_monitor reader_thread;
     Scheduler.within ~monitor:conn_monitor writer_thread;
     Monitor.detach_and_iter_errors conn_monitor ~f:(fun exn ->
-        Runtime.report_exn t exn);
+      Runtime.report_exn t exn);
     (* The Tcp module will close the file descriptor once this becomes
        determined. *)
     Deferred.all_unit [ Ivar.read read_complete; Ivar.read write_complete ]
@@ -138,7 +138,7 @@ end
 
 module Unix_io :
   Gluten_async_intf.IO
-    with type 'a socket = ([ `Active ], ([< Socket.Address.t ] as 'a)) Socket.t =
+  with type 'a socket = ([ `Active ], ([< Socket.Address.t ] as 'a)) Socket.t =
 struct
   type 'a socket = ([ `Active ], ([< Socket.Address.t ] as 'a)) Socket.t
 
@@ -166,16 +166,16 @@ struct
           fd
           buffer
           (Fd.syscall fd ~nonblocking:true (fun file_descr ->
-               Unix.Syscall_result.Int.ok_or_unix_error_exn
-                 ~syscall_name:"read"
-                 (Bigstring_unix.read_assume_fd_is_nonblocking
-                    file_descr
-                    bigstring
-                    ~pos:off
-                    ~len)))
+             Unix.Syscall_result.Int.ok_or_unix_error_exn
+               ~syscall_name:"read"
+               (Bigstring_unix.read_assume_fd_is_nonblocking
+                  file_descr
+                  bigstring
+                  ~pos:off
+                  ~len)))
       else
         Fd.syscall_in_thread fd ~name:"read" (fun file_descr ->
-            Bigstring_unix.read file_descr bigstring ~pos:off ~len)
+          Bigstring_unix.read file_descr bigstring ~pos:off ~len)
         >>= fun result -> finish fd buffer result
     in
     go fd bigstring

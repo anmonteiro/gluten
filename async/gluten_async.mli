@@ -37,8 +37,7 @@ open Async
 module Server : sig
   include
     Gluten_async_intf.Server
-      with type 'a socket =
-        ([ `Active ], ([< Socket.Address.t ] as 'a)) Socket.t
+    with type 'a socket = ([ `Active ], ([< Socket.Address.t ] as 'a)) Socket.t
 
   module SSL : sig
     include Gluten_async_intf.Server with type 'a socket = 'a Ssl_io.descriptor
@@ -63,8 +62,7 @@ end
 module Client : sig
   include
     Gluten_async_intf.Client
-      with type 'a socket =
-        ([ `Active ], ([< Socket.Address.t ] as 'a)) Socket.t
+    with type 'a socket = ([ `Active ], ([< Socket.Address.t ] as 'a)) Socket.t
 
   module SSL : sig
     include Gluten_async_intf.Client with type 'a socket = 'a Ssl_io.descriptor

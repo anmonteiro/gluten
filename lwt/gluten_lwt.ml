@@ -65,16 +65,16 @@ module IO_loop = struct
         | `Read ->
           Lwt.catch
             (fun () ->
-              read (module Io) socket read_buffer >>= fun (_ : int) ->
-              let (_ : int) = Buffer.get read_buffer ~f:(Runtime.read t) in
-              read_loop_step ())
+               read (module Io) socket read_buffer >>= fun (_ : int) ->
+               let (_ : int) = Buffer.get read_buffer ~f:(Runtime.read t) in
+               read_loop_step ())
             (function
-              | End_of_file ->
-                let (_ : int) =
-                  Buffer.get read_buffer ~f:(Runtime.read_eof t)
-                in
-                read_loop_step ()
-              | exn -> Lwt.fail exn)
+               | End_of_file ->
+                 let (_ : int) =
+                   Buffer.get read_buffer ~f:(Runtime.read_eof t)
+                 in
+                 read_loop_step ()
+               | exn -> Lwt.fail exn)
         | `Yield ->
           Runtime.yield_reader t read_loop;
           Lwt.return_unit
@@ -84,9 +84,9 @@ module IO_loop = struct
           Lwt.return_unit
       in
       Lwt.async (fun () ->
-          Lwt.catch read_loop_step (fun exn ->
-              Runtime.report_exn t exn;
-              Lwt.return_unit))
+        Lwt.catch read_loop_step (fun exn ->
+          Runtime.report_exn t exn;
+          Lwt.return_unit))
     in
     let writev = Io.writev socket in
     let write_loop_exited, notify_write_loop_exited = Lwt.wait () in
@@ -105,9 +105,9 @@ module IO_loop = struct
           Lwt.return_unit
       in
       Lwt.async (fun () ->
-          Lwt.catch write_loop_step (fun exn ->
-              Runtime.report_exn t exn;
-              Lwt.return_unit))
+        Lwt.catch write_loop_step (fun exn ->
+          Runtime.report_exn t exn;
+          Lwt.return_unit))
     in
     read_loop ();
     write_loop ();
@@ -171,12 +171,12 @@ module Client (Io : IO) = struct
   let create ~read_buffer_size ~protocol t socket =
     let connection = Client_connection.create ~protocol t in
     Lwt.async (fun () ->
-        IO_loop.start
-          (module Io)
-          (module Client_connection)
-          connection
-          ~read_buffer_size
-          socket);
+      IO_loop.start
+        (module Io)
+        (module Client_connection)
+        connection
+        ~read_buffer_size
+        socket);
     Lwt.return { connection; socket }
 
   let upgrade t protocol =
