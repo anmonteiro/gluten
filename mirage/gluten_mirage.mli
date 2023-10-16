@@ -41,8 +41,8 @@ end
 
 module Server (Flow : Mirage_flow.S) :
   Gluten_lwt.Server
-    with type socket = Flow.flow Buffered_flow.t
-     and type addr = unit
+  with type socket = Flow.flow Buffered_flow.t
+   and type addr = unit
 
 module Client (Flow : Mirage_flow.S) :
   Gluten_lwt.Client with type socket = Flow.flow Buffered_flow.t

@@ -33,8 +33,8 @@ open Lwt.Infix
 
 module Io :
   Gluten_lwt.IO
-    with type socket = Lwt_unix.file_descr
-     and type addr = Unix.sockaddr = struct
+  with type socket = Lwt_unix.file_descr
+   and type addr = Unix.sockaddr = struct
   type socket = Lwt_unix.file_descr
   type addr = Unix.sockaddr
 
@@ -44,24 +44,24 @@ module Io :
     | _ ->
       Lwt.catch
         (fun () ->
-          Lwt_unix.shutdown socket SHUTDOWN_ALL;
-          Lwt_unix.close socket)
+           Lwt_unix.shutdown socket SHUTDOWN_ALL;
+           Lwt_unix.close socket)
         (fun _exn -> Lwt.return_unit)
 
   let read socket bigstring ~off ~len =
     Lwt.catch
       (fun () ->
-        Lwt_bytes.read socket bigstring off len >|= function
-        | 0 -> raise End_of_file
-        | n -> n)
+         Lwt_bytes.read socket bigstring off len >|= function
+         | 0 -> raise End_of_file
+         | n -> n)
       (function
-        | Unix.Unix_error (Unix.EBADF, _, _) ->
-          (* If the socket is closed we need to feed EOF to the state
-             machine. *)
-          Lwt.fail End_of_file
-        | exn ->
-          Lwt.async (fun () -> close socket);
-          Lwt.fail exn)
+         | Unix.Unix_error (Unix.EBADF, _, _) ->
+           (* If the socket is closed we need to feed EOF to the state
+              machine. *)
+           Lwt.fail End_of_file
+         | exn ->
+           Lwt.async (fun () -> close socket);
+           Lwt.fail exn)
 
   let writev socket = Faraday_lwt_unix.writev_of_fd socket
 

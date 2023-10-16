@@ -43,8 +43,8 @@ end
 
 module Make_IO (Flow : Mirage_flow.S) :
   Gluten_lwt.IO
-    with type socket = Flow.flow Buffered_flow.t
-     and type addr = unit = struct
+  with type socket = Flow.flow Buffered_flow.t
+   and type addr = unit = struct
   type socket = Flow.flow Buffered_flow.t
   type addr = unit
 
@@ -79,17 +79,17 @@ module Make_IO (Flow : Mirage_flow.S) :
   let read sock bigstring ~off ~len =
     Lwt.catch
       (fun () ->
-        buffered_read sock len >|= function
-        | Ok (`Data buf) ->
-          Bigstringaf.blit
-            buf.buffer
-            ~src_off:buf.off
-            bigstring
-            ~dst_off:off
-            ~len:buf.len;
-          buf.len
-        | Ok `Eof -> raise End_of_file
-        | Error error -> failwith (Format.asprintf "%a" Flow.pp_error error))
+         buffered_read sock len >|= function
+         | Ok (`Data buf) ->
+           Bigstringaf.blit
+             buf.buffer
+             ~src_off:buf.off
+             bigstring
+             ~dst_off:off
+             ~len:buf.len;
+           buf.len
+         | Ok `Eof -> raise End_of_file
+         | Error error -> failwith (Format.asprintf "%a" Flow.pp_error error))
       (fun exn -> shutdown sock >>= fun () -> Lwt.fail exn)
 
   let writev (sock : socket) iovecs =
@@ -98,20 +98,21 @@ module Make_IO (Flow : Mirage_flow.S) :
     let copy_len =
       List.fold_left
         (fun dst_off { Faraday.buffer; off; len } ->
-          Bigstringaf.blit buffer ~src_off:off data.buffer ~dst_off ~len;
-          dst_off + len)
+           Bigstringaf.blit buffer ~src_off:off data.buffer ~dst_off ~len;
+           dst_off + len)
         0
         iovecs
     in
     assert (data_len = copy_len);
     Lwt.catch
       (fun () ->
-        Flow.write sock.flow data >|= fun x ->
-        match x with
-        | Ok () -> `Ok data_len
-        | Error `Closed -> `Closed
-        | Error other_error ->
-          raise (Failure (Format.asprintf "%a" Flow.pp_write_error other_error)))
+         Flow.write sock.flow data >|= fun x ->
+         match x with
+         | Ok () -> `Ok data_len
+         | Error `Closed -> `Closed
+         | Error other_error ->
+           raise
+             (Failure (Format.asprintf "%a" Flow.pp_write_error other_error)))
       (fun exn -> shutdown sock >>= fun () -> Lwt.fail exn)
 end
 

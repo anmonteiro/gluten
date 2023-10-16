@@ -47,37 +47,37 @@ struct
     | _ ->
       Lwt.catch
         (fun () ->
-          Lwt_ssl.close_notify ssl >>= fun _shutdown ->
-          Lwt.wrap2 Lwt_ssl.shutdown ssl Unix.SHUTDOWN_ALL >>= fun () ->
-          Lwt_ssl.close ssl)
+           Lwt_ssl.close_notify ssl >>= fun _shutdown ->
+           Lwt.wrap2 Lwt_ssl.shutdown ssl Unix.SHUTDOWN_ALL >>= fun () ->
+           Lwt_ssl.close ssl)
         (function
-          | Unix.Unix_error (Unix.ENOTCONN, _, _) -> Lwt.return_unit
-          | exn -> Lwt.fail exn)
+           | Unix.Unix_error (Unix.ENOTCONN, _, _) -> Lwt.return_unit
+           | exn -> Lwt.fail exn)
 
   let read ssl bigstring ~off ~len =
     Lwt.catch
       (fun () ->
-        Lwt_ssl.read_bytes ssl bigstring off len >|= function
-        | 0 -> raise End_of_file
-        | n -> n)
+         Lwt_ssl.read_bytes ssl bigstring off len >|= function
+         | 0 -> raise End_of_file
+         | n -> n)
       (function
-        | Unix.Unix_error (Unix.EBADF, _, _) -> Lwt.fail End_of_file
-        | exn -> Lwt.fail exn)
+         | Unix.Unix_error (Unix.EBADF, _, _) -> Lwt.fail End_of_file
+         | exn -> Lwt.fail exn)
 
   let writev ssl iovecs =
     Lwt.catch
       (fun () ->
-        Lwt_list.fold_left_s
-          (fun acc { Faraday.buffer; off; len } ->
-            Lwt_ssl.write_bytes ssl buffer off len >|= fun written ->
-            acc + written)
-          0
-          iovecs
-        >|= fun n -> `Ok n)
+         Lwt_list.fold_left_s
+           (fun acc { Faraday.buffer; off; len } ->
+              Lwt_ssl.write_bytes ssl buffer off len >|= fun written ->
+              acc + written)
+           0
+           iovecs
+         >|= fun n -> `Ok n)
       (function
-        | Unix.Unix_error (Unix.EBADF, "check_descriptor", _) ->
-          Lwt.return `Closed
-        | exn -> Lwt.fail exn)
+         | Unix.Unix_error (Unix.EBADF, "check_descriptor", _) ->
+           Lwt.return `Closed
+         | exn -> Lwt.fail exn)
 
   (* From RFC8446§6.1:
    *   The client and the server must share knowledge that the connection is
@@ -115,6 +115,6 @@ let make_server ?alpn_protocols ~certfile ~keyfile socket =
   | Some protos ->
     Ssl.set_context_alpn_protos server_ctx protos;
     Ssl.set_context_alpn_select_callback server_ctx (fun client_protos ->
-        first_match client_protos protos)
+      first_match client_protos protos)
   | None -> ());
   Lwt_ssl.ssl_accept socket server_ctx
