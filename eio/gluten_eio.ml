@@ -61,7 +61,7 @@ module IO_loop = struct
     | r -> r
     | exception
         ( Unix.Unix_error (ENOTCONN, _, _)
-        | Eio.Io (Eio.Exn.X (Eio_unix.Unix_error (_, _, _)), _)
+        | Eio.Io (Eio.Exn.X (Eio_unix.Unix_error (ENOTCONN, _, _)), _)
         | Eio.Io (Eio.Net.E (Connection_reset _), _) ) ->
       (* TODO(anmonteiro): logging? *)
       raise End_of_file
@@ -72,6 +72,8 @@ module IO_loop = struct
     | Eio.Io (Eio.Exn.X (Eio_unix.Unix_error (ENOTCONN, _, _)), _) ->
       ()
 
+  (* TODO(anmonteiro): since we stopped failing switches, [sw] is no longer
+     necessary. Consider removing the argument again. *)
   let start :
       type t.
       (module Gluten.RUNTIME with type t = t)
@@ -82,7 +84,7 @@ module IO_loop = struct
       -> _ Eio.Flow.two_way
       -> unit
     =
-   fun (module Runtime) ~read_buffer_size ~read_closed ~sw t socket ->
+   fun (module Runtime) ~read_buffer_size ~read_closed ~sw:_ t socket ->
     let read_closed, resolve_read_closed = read_closed
     and write_closed = ref false in
     let read_buffer = Buffer.create read_buffer_size in
@@ -139,14 +141,13 @@ module IO_loop = struct
                   ()
                 | false ->
                   (* If the write loop hasn't yet finished, but we got EOF from
-                     read (i.e. socket closed), fail the switch. *)
-                  Switch.fail sw exn)))
+                     read (i.e. socket closed), we want to feed EOF to the
+                     writer here so that we can terminate cleanly. *)
+                  Runtime.report_exn t exn)))
         in
         match read_loop_step () with
         | () -> ()
-        | exception exn ->
-          Runtime.report_exn t exn;
-          Switch.fail sw exn
+        | exception exn -> Runtime.report_exn t exn
     in
     let rec write_loop () =
       let rec write_loop_step () =
@@ -166,9 +167,7 @@ module IO_loop = struct
       in
       match write_loop_step () with
       | () -> ()
-      | exception exn ->
-        Runtime.report_exn t exn;
-        Switch.fail sw exn
+      | exception exn -> Runtime.report_exn t exn
     in
     Fiber.both read_loop write_loop
 end
