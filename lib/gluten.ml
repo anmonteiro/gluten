@@ -175,10 +175,31 @@ module Pooler : sig
 end = struct
   type t =
     { qs : (int, Bigstringaf.t Queue.t) Hashtbl.t
+    ; mutex : Mutex.t
     ; limit : int
     }
 
-  let create limit = { qs = Hashtbl.create 4; limit }
+  module Private = struct
+    exception No_wait
+
+    external reraise : exn -> 'a = "%reraise"
+
+    (* Like Mutex.protect, but skips invoking [f] altogether if it can't lock
+       the mutex. *)
+    let[@inline never] protect m f =
+      if Mutex.try_lock m
+      then (
+        match f () with
+        | x ->
+          Mutex.unlock m;
+          x
+        | exception e ->
+          Mutex.unlock m;
+          reraise e)
+      else raise_notrace No_wait
+  end
+
+  let create limit = { qs = Hashtbl.create 4; limit; mutex = Mutex.create () }
   let default = create 256
 
   (* Doesn't do anything if already over the limit. *)
@@ -191,23 +212,33 @@ end = struct
         Hashtbl.replace t.qs len q;
         q
     in
+    let[@inline] total_length t =
+      Seq.fold_left
+        (fun acc q -> acc + Queue.length q)
+        0
+        (Hashtbl.to_seq_values t)
+    in
     fun t x ->
-      match Hashtbl.length t.qs >= t.limit with
-      | true -> ()
+      match total_length t.qs >= t.limit with
+      | true ->
+        (* TODO: if all of our buffers are mostly in one bucket but there are
+           other buckets (keys in the hashtbl), we could balance them. *)
+        ()
       | false ->
-        let q = ensure_q t (Bigstringaf.length x) in
-        Queue.add x q
+        Private.protect t.mutex (fun () ->
+          let q = ensure_q t (Bigstringaf.length x) in
+          Queue.add x q)
 
   let acquire =
     let pop t len =
-      match Hashtbl.find t.qs len with
-      | q ->
-        (match Queue.pop q with
+      Private.protect t.mutex (fun () ->
+        let q = Hashtbl.find t.qs len in
+        match Queue.pop q with
         | b -> b
         | exception Queue.Empty -> raise_notrace Not_found)
     in
-    fun t read_buffer_size ->
-      match pop t read_buffer_size with
+    fun t len ->
+      match pop t len with
       | buffer -> buffer
-      | exception Not_found -> Bigstringaf.create read_buffer_size
+      | exception (Private.No_wait | Not_found) -> Bigstringaf.create len
 end
