@@ -32,6 +32,7 @@
 
 open Eio.Std
 module Buffer = Gluten.Buffer
+module Pooler = Gluten.Pooler
 
 module IO_loop = struct
   let writev socket iovecs =
@@ -78,16 +79,20 @@ module IO_loop = struct
       type t.
       (module Gluten.RUNTIME with type t = t)
       -> read_buffer_size:int
+      -> pooler:Pooler.t
       -> read_closed:unit Promise.t * unit Promise.u
       -> sw:Eio.Switch.t
       -> t
       -> _ Eio.Flow.two_way
       -> unit
     =
-   fun (module Runtime) ~read_buffer_size ~read_closed ~sw:_ t socket ->
+   fun (module Runtime) ~read_buffer_size ~pooler ~read_closed ~sw:_ t socket ->
     let read_closed, resolve_read_closed = read_closed
     and write_closed = ref false in
-    let read_buffer = Buffer.create read_buffer_size in
+    let read_buffer =
+      let buffer = Pooler.acquire pooler read_buffer_size in
+      Buffer.of_bigstring buffer
+    in
     let rec read_loop =
       let read socket read_buffer =
         Fiber.first
@@ -169,7 +174,8 @@ module IO_loop = struct
       | () -> ()
       | exception exn -> Runtime.report_exn t exn
     in
-    Fiber.both read_loop write_loop
+    Fiber.both read_loop write_loop;
+    Pooler.release pooler (Buffer.unsafe_buffer read_buffer)
 end
 
 module Server = struct
@@ -189,6 +195,7 @@ module Server = struct
       ~read_buffer_size
       ~read_closed:(Promise.create ())
       ~sw
+      ~pooler:Pooler.default
       connection
       socket
 
@@ -212,6 +219,7 @@ module Server = struct
       ~read_buffer_size
       ~read_closed:(Promise.create ())
       ~sw
+      ~pooler:Pooler.default
       connection
       socket
 end
@@ -237,6 +245,7 @@ module Client = struct
               ~read_closed
               ~read_buffer_size
               ~sw
+              ~pooler:Pooler.default
               connection
               socket))));
     { connection

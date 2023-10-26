@@ -130,9 +130,14 @@ module Buffer = struct
     ; cap : int
     }
 
+  let unsafe_buffer t = t.buffer
+
+  let of_bigstring buffer =
+    { buffer; off = 0; len = 0; cap = Bigstringaf.length buffer }
+
   let create size =
     let buffer = Bigstringaf.create size in
-    { buffer; off = 0; len = 0; cap = size }
+    of_bigstring buffer
 
   let compress t =
     if t.len = 0
@@ -158,4 +163,82 @@ module Buffer = struct
     f t.buffer ~off ~len (fun n ->
       t.len <- t.len + n;
       k n)
+end
+
+module Pooler : sig
+  type t
+
+  val default : t
+  val create : int -> t
+  val release : t -> Bigstringaf.t -> unit
+  val acquire : t -> int -> Bigstringaf.t
+end = struct
+  type t =
+    { qs : (int, Bigstringaf.t Queue.t) Hashtbl.t
+    ; mutex : Mutex.t
+    ; limit : int
+    }
+
+  module Private = struct
+    exception No_wait
+
+    external reraise : exn -> 'a = "%reraise"
+
+    (* Like Mutex.protect, but skips invoking [f] altogether if it can't lock
+       the mutex. *)
+    let[@inline never] protect m f =
+      if Mutex.try_lock m
+      then (
+        match f () with
+        | x ->
+          Mutex.unlock m;
+          x
+        | exception e ->
+          Mutex.unlock m;
+          reraise e)
+      else raise_notrace No_wait
+  end
+
+  let create limit = { qs = Hashtbl.create 4; limit; mutex = Mutex.create () }
+  let default = create 256
+
+  (* Doesn't do anything if already over the limit. *)
+  let release =
+    let ensure_q t len =
+      match Hashtbl.find t.qs len with
+      | q -> q
+      | exception Not_found ->
+        let q = Queue.create () in
+        Hashtbl.replace t.qs len q;
+        q
+    in
+    let[@inline] total_length t =
+      Seq.fold_left
+        (fun acc q -> acc + Queue.length q)
+        0
+        (Hashtbl.to_seq_values t)
+    in
+    fun t x ->
+      match total_length t.qs >= t.limit with
+      | true ->
+        (* TODO: if all of our buffers are mostly in one bucket but there are
+           other buckets (keys in the hashtbl), we could balance them. *)
+        ()
+      | false ->
+        Private.protect t.mutex (fun () ->
+          let q = ensure_q t (Bigstringaf.length x) in
+          Queue.add x q)
+
+  let acquire =
+    let pop t len =
+      Private.protect t.mutex (fun () ->
+        let q = Hashtbl.find t.qs len in
+        match Queue.pop q with
+        | b -> b
+        | exception Queue.Empty -> raise_notrace Not_found)
+    in
+    fun t len ->
+      match pop t len with
+      | buffer -> buffer
+      | exception (Private.No_wait | Not_found) -> Bigstringaf.create len
 end

@@ -93,6 +93,7 @@ module Buffer : sig
   type t
 
   val create : int -> t
+  val of_bigstring : Bigstringaf.t -> t
   val get : t -> f:(Bigstringaf.t -> off:int -> len:int -> int) -> int
 
   val put :
@@ -100,4 +101,19 @@ module Buffer : sig
     -> f:(Bigstringaf.t -> off:int -> len:int -> (int -> unit) -> unit)
     -> (int -> unit)
     -> unit
+
+  (**/**)
+
+  val unsafe_buffer : t -> Bigstringaf.t
+
+  (**/**)
+end
+
+module Pooler : sig
+  type t
+
+  val default : t
+  val create : int -> t
+  val release : t -> Bigstringaf.t -> unit
+  val acquire : t -> int -> Bigstringaf.t
 end
