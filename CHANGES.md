@@ -1,4 +1,4 @@
-Unreleased
+0.5.0 2023-10-25
 --------------
 
 - gluten-eio: require `~sw:Eio.Switch.t` argument and fail the switch when loop
