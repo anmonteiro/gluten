@@ -7,6 +7,11 @@ Unreleased
   ([#60](https://github.com/anmonteiro/gluten/pull/60))
 - gluten: replace `Gluten.Buffer` implementation and drop the `Ke` dependency
   ([#67](https://github.com/anmonteiro/gluten/pull/67))
+- gluten-eio: adapt to Eio v0.12 ([#66](https://github.com/anmonteiro/gluten/pull/66)
+- gluten-eio: don't fail switches in the I/O loop([#70](https://github.com/anmonteiro/gluten/pull/70)
+- gluten-eio: open up #Eio.Flow.two_way ([#62](https://github.com/anmonteiro/gluten/pull/62)
+- gluten-async: async-tls compilation error when using tls-async package ([#63](https://github.com/anmonteiro/gluten/pull/63))
+- gluten-eio, gluten-async, gluten-lwt, gluten-lwt-unix: refactor: unwrap Gluten.Buffer.put in favor of exceptions ([#58](https://github.com/anmonteiro/gluten/pull/58))
 
 0.4.1 2023-03-16
 --------------
