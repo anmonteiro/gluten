@@ -60,11 +60,11 @@ module Client : sig
     -> read_buffer_size:int
     -> protocol:'t Gluten.runtime
     -> 't
-    -> Eio_unix.Net.stream_socket_ty Eio.Net.stream_socket
+    -> _ Eio.Net.stream_socket
     -> t
 
   val upgrade : t -> Gluten.impl -> unit
   val shutdown : t -> unit Eio.Promise.t
   val is_closed : t -> bool
-  val socket : t -> Eio_unix.Net.stream_socket_ty Eio.Net.stream_socket
+  val socket : t -> Eio.Flow.two_way_ty Eio.Flow.two_way
 end

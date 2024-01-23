@@ -219,7 +219,7 @@ end
 module Client = struct
   type t =
     { connection : Gluten.Client.t
-    ; socket : Eio_unix.Net.stream_socket_ty Eio.Net.stream_socket
+    ; socket : Eio.Flow.two_way_ty Eio.Flow.two_way
     ; shutdown_reader : unit -> unit
     ; shutdown_complete : unit Promise.t
     }
@@ -240,7 +240,7 @@ module Client = struct
               connection
               socket))));
     { connection
-    ; socket
+    ; socket :> Eio.Flow.two_way_ty Eio.Flow.two_way
     ; shutdown_reader =
         (fun () ->
           let cancel_reader, resolve_cancel_reader = read_closed in
