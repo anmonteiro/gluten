@@ -37,8 +37,6 @@ open Async
 module Buffer = Gluten.Buffer
 
 module Make_IO_Loop (Io : Gluten_async_intf.IO) = struct
-  type 'a fd = 'a Io.socket
-
   let read socket read_buffer =
     let ivar = Ivar.create () in
     Buffer.put
@@ -47,11 +45,22 @@ module Make_IO_Loop (Io : Gluten_async_intf.IO) = struct
       (Ivar.fill ivar);
     Ivar.read ivar
 
-  let start (type t) m t ~read_buffer_size ~read_complete ~write_complete socket
+  let start : type t.
+    (module Gluten.RUNTIME with type t = t)
+    -> t
+    -> read_buffer_size:int
+    -> read_complete:unit Ivar.t
+    -> write_complete:unit Ivar.t
+    -> 'a Io.socket
+    -> unit Deferred.t
     =
-    let module Runtime = (val m : Gluten.RUNTIME with type t = t) in
+   fun (module Runtime)
+     t
+     ~read_buffer_size
+     ~read_complete
+     ~write_complete
+     socket ->
     let read_buffer = Buffer.create read_buffer_size in
-    let monitor = Monitor.create () in
     let rec reader_thread () =
       match Runtime.next_read_operation t with
       | `Read ->
@@ -61,10 +70,7 @@ module Make_IO_Loop (Io : Gluten_async_intf.IO) = struct
           let (_ : int) = Buffer.get read_buffer ~f:(Runtime.read_eof t) in
           Ivar.fill_if_empty read_complete ()
         | _n ->
-          let _n =
-            Buffer.get read_buffer ~f:(fun bigstring ~off ~len ->
-              Runtime.read t bigstring ~off ~len)
-          in
+          let _n = Buffer.get read_buffer ~f:(Runtime.read t) in
           reader_thread () )
       | `Yield -> Runtime.yield_reader t reader_thread
       | `Close ->
@@ -82,13 +88,14 @@ module Make_IO_Loop (Io : Gluten_async_intf.IO) = struct
       | `Yield -> Runtime.yield_writer t writer_thread
       | `Close _ -> Ivar.fill write_complete ()
     in
+    let monitor = Monitor.create () in
     Scheduler.within ~monitor reader_thread;
     Scheduler.within ~monitor writer_thread;
     Monitor.detach_and_iter_errors monitor ~f:(fun exn ->
       Runtime.report_exn t exn);
     (* The Tcp module will close the file descriptor once this becomes
        determined. *)
-    Deferred.all_unit Ivar.[ read read_complete; read write_complete ]
+    Deferred.all_unit [ Ivar.read read_complete; Ivar.read write_complete ]
     >>= fun () -> Io.close socket
 end
 
@@ -98,11 +105,11 @@ module Make_server (Io : Gluten_async_intf.IO) = struct
   module IO_loop = Make_IO_Loop (Io)
 
   let create_connection_handler
-      ~read_buffer_size
-      ~protocol
-      connection
-      _client_addr
-      socket
+        ~read_buffer_size
+        ~protocol
+        connection
+        _client_addr
+        socket
     =
     let connection = Gluten.Server.create ~protocol connection in
     let read_complete = Ivar.create () in
@@ -116,12 +123,12 @@ module Make_server (Io : Gluten_async_intf.IO) = struct
       socket
 
   let create_upgradable_connection_handler
-      ~read_buffer_size
-      ~protocol
-      ~create_protocol
-      ~request_handler
-      client_addr
-      socket
+        ~read_buffer_size
+        ~protocol
+        ~create_protocol
+        ~request_handler
+        client_addr
+        socket
     =
     let connection =
       Gluten.Server.create_upgradable
