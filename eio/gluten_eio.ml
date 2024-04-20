@@ -74,15 +74,14 @@ module IO_loop = struct
 
   (* TODO(anmonteiro): since we stopped failing switches, [sw] is no longer
      necessary. Consider removing the argument again. *)
-  let start :
-      type t.
-      (module Gluten.RUNTIME with type t = t)
-      -> read_buffer_size:int
-      -> read_closed:unit Promise.t * unit Promise.u
-      -> sw:Eio.Switch.t
-      -> t
-      -> _ Eio.Flow.two_way
-      -> unit
+  let start : type t.
+    (module Gluten.RUNTIME with type t = t)
+    -> read_buffer_size:int
+    -> read_closed:unit Promise.t * unit Promise.u
+    -> sw:Eio.Switch.t
+    -> t
+    -> _ Eio.Flow.two_way
+    -> unit
     =
    fun (module Runtime) ~read_buffer_size ~read_closed ~sw:_ t socket ->
     let read_closed, resolve_read_closed = read_closed
@@ -176,12 +175,12 @@ module Server = struct
   type addr = Eio.Net.Sockaddr.stream
 
   let create_connection_handler
-      ~read_buffer_size
-      ~protocol
-      ~sw
-      connection
-      _client_addr
-      socket
+        ~read_buffer_size
+        ~protocol
+        ~sw
+        connection
+        _client_addr
+        socket
     =
     let connection = Gluten.Server.create ~protocol connection in
     IO_loop.start
@@ -193,13 +192,13 @@ module Server = struct
       socket
 
   let create_upgradable_connection_handler
-      ~read_buffer_size
-      ~protocol
-      ~create_protocol
-      ~sw
-      ~request_handler
-      (client_addr : addr)
-      socket
+        ~read_buffer_size
+        ~protocol
+        ~create_protocol
+        ~sw
+        ~request_handler
+        (client_addr : addr)
+        socket
     =
     let connection =
       Gluten.Server.create_upgradable
@@ -219,7 +218,6 @@ end
 module Client = struct
   type t =
     { connection : Gluten.Client.t
-    ; socket : Eio_unix.Net.stream_socket_ty Eio.Net.stream_socket
     ; shutdown_reader : unit -> unit
     ; shutdown_complete : unit Promise.t
     }
@@ -240,7 +238,6 @@ module Client = struct
               connection
               socket))));
     { connection
-    ; socket
     ; shutdown_reader =
         (fun () ->
           let cancel_reader, resolve_cancel_reader = read_closed in
@@ -257,5 +254,4 @@ module Client = struct
     t.shutdown_complete
 
   let is_closed t = Gluten.Client.is_closed t.connection
-  let socket t = t.socket
 end

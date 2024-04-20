@@ -47,14 +47,13 @@ module IO_loop = struct
       (fun n -> Lwt.wakeup_later u n);
     p
 
-  let start :
-      type t fd.
-      (module IO with type socket = fd)
-      -> (module Gluten.RUNTIME with type t = t)
-      -> t
-      -> read_buffer_size:int
-      -> fd
-      -> unit Lwt.t
+  let start : type t fd.
+    (module IO with type socket = fd)
+    -> (module Gluten.RUNTIME with type t = t)
+    -> t
+    -> read_buffer_size:int
+    -> fd
+    -> unit Lwt.t
     =
    fun (module Io) (module Runtime) t ~read_buffer_size socket ->
     let read_buffer = Buffer.create read_buffer_size in
@@ -122,11 +121,11 @@ module Server (Io : IO) = struct
   type addr = Io.addr
 
   let create_connection_handler
-      ~read_buffer_size
-      ~protocol
-      connection
-      _client_addr
-      socket
+        ~read_buffer_size
+        ~protocol
+        connection
+        _client_addr
+        socket
     =
     let connection = Server.create ~protocol connection in
     IO_loop.start
@@ -137,12 +136,12 @@ module Server (Io : IO) = struct
       socket
 
   let create_upgradable_connection_handler
-      ~read_buffer_size
-      ~protocol
-      ~create_protocol
-      ~request_handler
-      client_addr
-      socket
+        ~read_buffer_size
+        ~protocol
+        ~create_protocol
+        ~request_handler
+        client_addr
+        socket
     =
     let connection =
       Server.create_upgradable
@@ -187,5 +186,4 @@ module Client (Io : IO) = struct
     Io.close t.socket
 
   let is_closed t = Client_connection.is_closed t.connection
-  let socket t = t.socket
 end

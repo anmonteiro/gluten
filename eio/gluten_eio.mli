@@ -66,5 +66,4 @@ module Client : sig
   val upgrade : t -> Gluten.impl -> unit
   val shutdown : t -> unit Eio.Promise.t
   val is_closed : t -> bool
-  val socket : t -> Eio_unix.Net.stream_socket_ty Eio.Net.stream_socket
 end

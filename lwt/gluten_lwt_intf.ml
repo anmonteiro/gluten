@@ -82,5 +82,4 @@ module type Client = sig
   val upgrade : t -> Gluten.impl -> unit
   val shutdown : t -> unit Lwt.t
   val is_closed : t -> bool
-  val socket : t -> socket
 end
