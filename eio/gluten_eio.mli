@@ -60,7 +60,7 @@ module Client : sig
     -> read_buffer_size:int
     -> protocol:'t Gluten.runtime
     -> 't
-    -> Eio_unix.Net.stream_socket_ty Eio.Net.stream_socket
+    -> _ Eio.Net.stream_socket
     -> t
 
   val upgrade : t -> Gluten.impl -> unit
