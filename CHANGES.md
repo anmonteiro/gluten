@@ -1,3 +1,11 @@
+Unreleased
+--------------
+
+- gluten-lwt,gluten-eio: remove `Client.socket`
+  ([#75](https://github.com/anmonteiro/gluten/pull/75))
+- gluten-eio: don't require `Eio_unix.stream_socket_ty`, allowing the use of
+  mock sockets ([#74](https://github.com/anmonteiro/gluten/pull/74))
+
 0.5.0 2023-10-25
 --------------
 
