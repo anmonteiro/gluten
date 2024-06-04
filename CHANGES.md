@@ -1,4 +1,4 @@
-Unreleased
+0.5.1 2024-06-04
 --------------
 
 - gluten-lwt,gluten-eio: remove `Client.socket`
