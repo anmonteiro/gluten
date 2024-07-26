@@ -66,14 +66,15 @@ module IO_loop = struct
             (fun () ->
                read (module Io) socket read_buffer >>= fun (_ : int) ->
                let (_ : int) = Buffer.get read_buffer ~f:(Runtime.read t) in
-               read_loop_step ())
+               Lwt.return_unit)
             (function
                | End_of_file ->
                  let (_ : int) =
                    Buffer.get read_buffer ~f:(Runtime.read_eof t)
                  in
-                 read_loop_step ()
+                 Lwt.return_unit
                | exn -> Lwt.fail exn)
+          >>= read_loop_step
         | `Yield ->
           Runtime.yield_reader t read_loop;
           Lwt.return_unit
