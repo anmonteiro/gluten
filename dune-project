@@ -87,9 +87,9 @@
   (faraday-async
    (>= "0.7.3"))
   (async
-   (>= "v0.15.0"))
+   (>= "v0.17.0"))
   (core
-   (>= "v0.15.0")))
+   (>= "v0.17.0")))
  (depopts async_ssl tls-async))
 
 (package

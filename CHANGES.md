@@ -1,3 +1,8 @@
+unreleased
+--------------
+- gluten-async: update async and core to v0.17.0
+  ([#78)(https://github.com/anmonteiro/gluten/pull/78))
+
 0.5.1 2024-06-04
 --------------
 
