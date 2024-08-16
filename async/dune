@@ -18,5 +18,4 @@
    from
    (tls-async -> tls_io.real.ml)
    (!tls-async -> tls_io.dummy.ml)))
- (modules gluten_async gluten_async_intf ssl_io tls_io)
- (flags (:standard -w -3)))
+ (modules gluten_async gluten_async_intf ssl_io tls_io))

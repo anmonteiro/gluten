@@ -44,7 +44,7 @@ module Make_IO_Loop (Io : Gluten_async_intf.IO) = struct
     Buffer.put
       ~f:(fun buf ~off ~len k -> Async.upon (Io.read socket buf ~off ~len) k)
       read_buffer
-      (fun n -> Ivar.fill ivar n);
+      (fun n -> (Ivar.fill [@alert "-deprecated"]) ivar n);
     Ivar.read ivar
 
   let start :
@@ -76,7 +76,7 @@ module Make_IO_Loop (Io : Gluten_async_intf.IO) = struct
           Runtime.yield_reader t reader_thread;
           Deferred.return ()
         | `Close ->
-          Ivar.fill read_complete ();
+          (Ivar.fill [@alert "-deprecated"]) read_complete ();
           Io.shutdown_receive socket;
           Deferred.return ()
       in
@@ -91,7 +91,7 @@ module Make_IO_Loop (Io : Gluten_async_intf.IO) = struct
         Runtime.report_write_result t result;
         writer_thread ()
       | `Yield -> Runtime.yield_writer t writer_thread
-      | `Close _ -> Ivar.fill write_complete ()
+      | `Close _ -> (Ivar.fill [@alert "-deprecated"]) write_complete ()
     in
     let conn_monitor = Monitor.create () in
     Scheduler.within ~monitor:conn_monitor reader_thread;

@@ -97,7 +97,7 @@ let connect :
     don't_wait_for
       ( Deferred.all_unit
           [ Reader.close_finished reader; Writer.close_finished writer ]
-      >>| fun () -> Ivar.fill closed () );
+      >>| fun () -> (Ivar.fill [@alert "-deprecated"]) closed () );
     return (reader, writer, Ivar.read closed)
 
 let null_auth ?ip:_ ~host:_ _ = Ok None

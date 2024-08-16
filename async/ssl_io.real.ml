@@ -108,7 +108,7 @@ let connect r w =
   don't_wait_for
     ( closed_and_flushed >>= fun () ->
       Reader.close_finished app_reader >>| fun () ->
-      Writer.close w >>> Ivar.fill closed_ivar );
+      Writer.close w >>> (Ivar.fill [@alert "-deprecated"]) closed_ivar );
   let reader = app_reader in
   let writer = app_writer in
   reader, writer, Ivar.read closed_ivar
@@ -142,7 +142,7 @@ let listen ~crt_file ~key_file r w =
   don't_wait_for
     ( closed_and_flushed >>= fun () ->
       Reader.close_finished app_reader >>| fun () ->
-      Writer.close w >>> Ivar.fill closed_ivar );
+      Writer.close w >>> (Ivar.fill [@alert "-deprecated"]) closed_ivar );
   let reader = app_reader in
   let writer = app_writer in
   reader, writer, Ivar.read closed_ivar
