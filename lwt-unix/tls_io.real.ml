@@ -57,14 +57,14 @@ struct
   let writev tls iovecs =
     Lwt.catch
       (fun () ->
-         let cstruct_iovecs =
-           List.map
-             (fun { Faraday.len; buffer; off } ->
-                Cstruct.of_bigarray ~off ~len buffer)
+         let lenv, cstruct_iovecs =
+           List.fold_left_map
+             (fun acc { Faraday.len; buffer; off } ->
+                acc + len, Bigstringaf.substring buffer ~off ~len)
+             0
              iovecs
          in
-         Tls_lwt.Unix.writev tls cstruct_iovecs >|= fun () ->
-         `Ok (Cstruct.lenv cstruct_iovecs))
+         Tls_lwt.Unix.writev tls cstruct_iovecs >|= fun () -> `Ok lenv)
       (function
          | Unix.Unix_error (Unix.EBADF, "check_descriptor", _) ->
            Lwt.return `Closed
@@ -76,7 +76,10 @@ end
 let null_auth ?ip:_ ~host:_ _ = Ok None
 
 let make_client ?alpn_protocols socket =
-  let config = Tls.Config.client ?alpn_protocols ~authenticator:null_auth () in
+  let config =
+    Tls.Config.client ?alpn_protocols ~authenticator:null_auth ()
+    |> Result.get_ok
+  in
   Tls_lwt.Unix.client_of_fd config socket
 
 let make_server ?alpn_protocols ~certfile ~keyfile socket =
@@ -84,5 +87,6 @@ let make_server ?alpn_protocols ~certfile ~keyfile socket =
   >>= fun certificate ->
   let config =
     Tls.Config.server ?alpn_protocols ~certificates:(`Single certificate) ()
+    |> Result.get_ok
   in
   Tls_lwt.Unix.server_of_fd config socket

@@ -44,6 +44,7 @@ let
         faraday-lwt-unix
         gluten-lwt
         lwt_ssl
+        tls-lwt
       ];
     };
 

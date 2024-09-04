@@ -97,7 +97,7 @@ let connect :
     don't_wait_for
       ( Deferred.all_unit
           [ Reader.close_finished reader; Writer.close_finished writer ]
-      >>| fun () -> (Ivar.fill [@alert "-deprecated"]) closed () );
+      >>| fun () -> (Ivar.fill [@ocaml.alert "-deprecated"]) closed () );
     return (reader, writer, Ivar.read closed)
 
 let null_auth ?ip:_ ~host:_ _ = Ok None
@@ -110,7 +110,11 @@ let make_default_client :
     -> 'b descriptor Deferred.t
   =
  fun ?alpn_protocols ?host socket where_to_connect ->
-  let config = Tls.Config.client ?alpn_protocols ~authenticator:null_auth () in
+  let config =
+    Tls.Config.client ?alpn_protocols ~authenticator:null_auth ()
+    |> Result.ok
+    |> Option.value_exn
+  in
   connect ~config ~socket ~where_to_connect ~host
 
 (* let make_server ?alpn_protocols ~certfile ~keyfile _socket =

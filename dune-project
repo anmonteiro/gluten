@@ -57,7 +57,8 @@
  (depopts
   (lwt_ssl
    (>= "1.2.0"))
-  tls-lwt))
+  (tls-lwt
+   (>= "1.0.0"))))
 
 (package
  (name gluten-mirage)
@@ -72,9 +73,7 @@
   (conduit-mirage
    (>= "2.0.2"))
   (mirage-flow
-   (>= "2.0.0"))
-  (cstruct
-   (>= "6.0.0"))))
+   (>= "2.0.0"))))
 
 (package
  (name gluten-async)
@@ -90,7 +89,10 @@
    (>= "v0.15.0"))
   (core
    (>= "v0.15.0")))
- (depopts async_ssl tls-async))
+ (depopts
+  async_ssl
+  (tls-async
+   (>= "1.0.0"))))
 
 (package
  (name gluten-eio)
