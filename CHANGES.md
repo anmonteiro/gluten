@@ -1,7 +1,10 @@
-unreleased
+0.5.2 2024-09-04
 --------------
+
 - gluten-async: Silence async deprecation warnings
   ([#78)(https://github.com/anmonteiro/gluten/pull/78))
+- migrate to tls 1.0.0 without cstruct
+  ([#80](https://github.com/anmonteiro/gluten/pull/80))
 
 0.5.1 2024-06-04
 --------------
