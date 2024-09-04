@@ -15,7 +15,7 @@ depends: [
 ]
 depopts: [
   "lwt_ssl" {>= "1.2.0"}
-  "tls-lwt"
+  "tls-lwt" {>= "1.0.0"}
 ]
 build: [
   ["dune" "subst"] {dev}

@@ -13,7 +13,6 @@ depends: [
   "faraday-lwt" {>= "0.7.3"}
   "conduit-mirage" {>= "2.0.2"}
   "mirage-flow" {>= "2.0.0"}
-  "cstruct" {>= "6.0.0"}
   "odoc" {with-doc}
 ]
 build: [

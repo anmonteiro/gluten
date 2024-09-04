@@ -17,7 +17,12 @@
       in
       {
         packages = packages // { default = packages.gluten; };
-        devShells.default = pkgs.callPackage ./shell.nix { inherit packages; };
-        devShells.release = pkgs.callPackage ./shell.nix { inherit packages; release-mode = true; };
+        devShells = {
+          default = pkgs.callPackage ./nix/shell.nix { inherit packages; };
+          release = pkgs.callPackage ./nix/shell.nix {
+            inherit packages;
+            release-mode = true;
+          };
+        };
       });
 }

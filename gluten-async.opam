@@ -15,7 +15,10 @@ depends: [
   "core" {>= "v0.15.0"}
   "odoc" {with-doc}
 ]
-depopts: ["async_ssl" "tls-async"]
+depopts: [
+  "async_ssl"
+  "tls-async" {>= "1.0.0"}
+]
 build: [
   ["dune" "subst"] {dev}
   [
