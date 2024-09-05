@@ -73,7 +73,7 @@
   (conduit-mirage
    (>= "2.0.2"))
   (mirage-flow
-   (>= "2.0.0"))))
+   (>= "3.0.0"))))
 
 (package
  (name gluten-async)
