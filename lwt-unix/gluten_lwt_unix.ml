@@ -42,11 +42,18 @@ module Io :
     match Lwt_unix.state socket with
     | Closed -> Lwt.return_unit
     | _ ->
-      Lwt.catch
+      Lwt.finalize
         (fun () ->
-           Lwt_unix.shutdown socket SHUTDOWN_ALL;
+           Lwt.catch
+             (fun () ->
+                Lwt_unix.shutdown socket SHUTDOWN_ALL;
+                Lwt.return_unit)
+             (function
+               |  Unix.Unix_error (Unix.ENOTCONN, _, _) -> Lwt.return_unit
+               |  exn -> Lwt.reraise exn))
+        (fun () -> 
            Lwt_unix.close socket)
-        (fun _exn -> Lwt.return_unit)
+
 
   let read socket bigstring ~off ~len =
     Lwt.catch
