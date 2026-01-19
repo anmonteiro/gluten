@@ -68,7 +68,8 @@ module Client : sig
     include Gluten_async_intf.Client with type 'a socket = 'a Ssl_io.descriptor
 
     val create_default :
-       ?alpn_protocols:string list
+       ?hostname:string
+      -> ?alpn_protocols:string list
       -> ([ `Active ], [< Socket.Address.t ]) Socket.t
       -> [< Socket.Address.t ] socket Deferred.t
   end
