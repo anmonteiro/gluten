@@ -87,15 +87,7 @@ module IO_loop = struct
     let read_closed, resolve_read_closed = read_closed
     and write_closed = ref false in
     let read_buffer = Buffer.create read_buffer_size in
-    let rec read_loop =
-      let read socket read_buffer =
-        Fiber.first
-          (fun () -> read socket read_buffer)
-          (fun () ->
-             Promise.await read_closed;
-             raise End_of_file)
-      in
-      fun () ->
+    let rec read_loop () =
         let rec read_loop_step () =
           match Runtime.next_read_operation t with
           | `Read ->
@@ -242,7 +234,9 @@ module Client = struct
         (fun () ->
           let cancel_reader, resolve_cancel_reader = read_closed in
           if not (Promise.is_resolved cancel_reader)
-          then Promise.resolve resolve_cancel_reader ())
+          then (
+            IO_loop.shutdown socket `Receive;
+            Promise.resolve resolve_cancel_reader ()))
     ; shutdown_complete = shutdown_p
     }
 
