@@ -112,25 +112,60 @@ let make_default_client :
  fun ?alpn_protocols ?host socket where_to_connect ->
   let config =
     Tls.Config.client ?alpn_protocols ~authenticator:null_auth ()
-    |> Result.ok
-    |> Option.value_exn
+    |> Result.map_error ~f:(fun (`Msg msg) -> msg)
+    |> Result.ok_or_failwith
   in
   connect ~config ~socket ~where_to_connect ~host
 
-(* let make_server ?alpn_protocols ~certfile ~keyfile _socket =
-   Tls_async.X509_async.Certificate.of_pem_file certfile |>
-   Deferred.Or_error.ok_exn >>= fun certificate ->
-   Tls_async.X509_async.Private_key.of_pem_file keyfile |>
-   Deferred.Or_error.ok_exn >>= fun priv_key -> let _config = Tls.Config.(
-   server ?alpn_protocols ~version:(`TLS_1_0, `TLS_1_2) ~certificates:(`Single
-   (certificate, priv_key)) ~ciphers:Ciphers.supported ()) in failwithf
-   "Gluten_async.TLS.make_server: unimplemented" () *)
-
-let[@ocaml.warning "-21"] make_server
-    ?alpn_protocols:_
-    ~certfile:_
-    ~keyfile:_
-    _socket
+let reader_writer_of_sock
+    ?buffer_age_limit
+    ?reader_buffer_size
+    ?writer_buffer_size
+    s
   =
-  failwith "Tls_async Server not implemented";
-  fun _socket -> Core.failwith "Tls_async Server not implemented"
+  let fd = Socket.fd s in
+  ( Reader.create ?buf_len:reader_buffer_size fd
+  , Writer.create ?buffer_age_limit ?buf_len:writer_buffer_size fd )
+
+let make_server :
+     ?alpn_protocols:string list
+  -> certfile:string
+  -> keyfile:string
+  -> ([ `Active ], ([< Socket.Address.t ] as 'a)) Socket.t
+  -> 'a descriptor Deferred.t
+  =
+ fun ?alpn_protocols ~certfile ~keyfile socket ->
+  let outer_reader, outer_writer = reader_writer_of_sock socket in
+  Tls_async.X509_async.Certificate.of_pem_file certfile
+  |> Deferred.Or_error.ok_exn
+  >>= fun certificate ->
+  Tls_async.X509_async.Private_key.of_pem_file keyfile
+  |> Deferred.Or_error.ok_exn
+  >>= fun priv_key ->
+  let config =
+    Tls.Config.server
+      ?alpn_protocols
+      ~certificates:(`Single (certificate, priv_key))
+      ()
+    |> Result.map_error ~f:(fun (`Msg msg) -> msg)
+    |> Result.ok_or_failwith
+  in
+  let descriptor_ivar = Ivar.create () in
+  don't_wait_for
+    (Tls_async.upgrade_server_handler
+       ~config
+       (fun _session inner_reader inner_writer ->
+         let closed = Ivar.create () in
+         don't_wait_for
+           (Deferred.all_unit
+              [ Reader.close_finished inner_reader
+              ; Writer.close_finished inner_writer
+              ]
+           >>| fun () ->
+           (Ivar.fill [@ocaml.alert "-deprecated"]) closed ());
+         (Ivar.fill [@ocaml.alert "-deprecated"]) descriptor_ivar
+           (inner_reader, inner_writer, Ivar.read closed);
+         Ivar.read closed)
+       outer_reader
+       outer_writer);
+  Ivar.read descriptor_ivar

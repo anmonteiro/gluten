@@ -208,11 +208,15 @@ module Server = struct
       fun _client_addr socket -> make_ssl_server socket
   end
 
-  (* module TLS = struct include Make_server (Tls_io.Io)
+  module TLS = struct
+    include Make_server (Tls_io.Io)
 
-     let create_default ?alpn_protocols ~certfile ~keyfile = let make_ssl_server
-     = Ssl_io.make_server ?alpn_protocols ~certfile ~keyfile in fun _client_addr
-     socket -> make_ssl_server socket end *)
+    let create_default ?alpn_protocols ~certfile ~keyfile =
+      let make_tls_server =
+        Tls_io.make_server ?alpn_protocols ~certfile ~keyfile
+      in
+      fun _client_addr socket -> make_tls_server socket
+  end
 end
 
 module Make_client (Io : Gluten_async_intf.IO) = struct
