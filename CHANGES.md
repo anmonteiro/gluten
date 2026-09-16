@@ -1,3 +1,10 @@
+Unreleased
+--------------
+
+- gluten-async: `Client.SSL.create_default` takes `?hostname` (SNI) and
+  forwards `?alpn_protocols` to Async_ssl, which requires async_ssl v0.17
+  ([#89](https://github.com/anmonteiro/gluten/pull/89))
+
 0.5.2 2024-09-04
 --------------
 

@@ -19,6 +19,9 @@ depopts: [
   "async_ssl"
   "tls-async" {>= "1.0.0"}
 ]
+conflicts: [
+  "async_ssl" {< "v0.17.0"}
+]
 build: [
   ["dune" "subst"] {dev}
   [

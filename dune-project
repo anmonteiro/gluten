@@ -92,7 +92,10 @@
  (depopts
   async_ssl
   (tls-async
-   (>= "1.0.0"))))
+   (>= "1.0.0")))
+ (conflicts
+  (async_ssl
+   (< "v0.17.0"))))
 
 (package
  (name gluten-eio)

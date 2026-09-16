@@ -253,8 +253,8 @@ module Client = struct
   module SSL = struct
     include Make_client (Ssl_io.Io)
 
-    let create_default ?alpn_protocols socket =
-      Ssl_io.make_default_client ?alpn_protocols socket
+    let create_default ?hostname ?alpn_protocols socket =
+      Ssl_io.make_default_client ?hostname ?alpn_protocols socket
   end
 
   module TLS = struct
