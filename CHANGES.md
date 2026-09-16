@@ -1,3 +1,10 @@
+Unreleased
+--------------
+
+- gluten-async: close the socket when the reader or writer raises, and add
+  `Client.close_finished`
+  ([#88](https://github.com/anmonteiro/gluten/pull/88))
+
 0.5.2 2024-09-04
 --------------
 

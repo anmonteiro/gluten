@@ -76,7 +76,7 @@ module Make_IO_Loop (Io : Gluten_async_intf.IO) = struct
           Runtime.yield_reader t reader_thread;
           Deferred.return ()
         | `Close ->
-          (Ivar.fill [@ocaml.alert "-deprecated"]) read_complete ();
+          Ivar.fill_if_empty read_complete ();
           Io.shutdown_receive socket;
           Deferred.return ()
       in
@@ -91,13 +91,21 @@ module Make_IO_Loop (Io : Gluten_async_intf.IO) = struct
         Runtime.report_write_result t result;
         writer_thread ()
       | `Yield -> Runtime.yield_writer t writer_thread
-      | `Close _ -> (Ivar.fill [@ocaml.alert "-deprecated"]) write_complete ()
+      | `Close _ -> Ivar.fill_if_empty write_complete ()
     in
     let conn_monitor = Monitor.create () in
     Scheduler.within ~monitor:conn_monitor reader_thread;
     Scheduler.within ~monitor:conn_monitor writer_thread;
     Monitor.detach_and_iter_errors conn_monitor ~f:(fun exn ->
-      Runtime.report_exn t exn);
+      (* [report_exn] may wake up the reader or writer (e.g. to flush a GOAWAY),
+         whose I/O can raise again (EPIPE): keep them under [conn_monitor]
+         instead of the monitor that is iterating over its errors. *)
+      Scheduler.within ~monitor:conn_monitor (fun () ->
+        Runtime.report_exn t exn);
+      (* The reader or writer that raised will never reach its [`Close]
+         operation, so the socket would never be closed. *)
+      Ivar.fill_if_empty read_complete ();
+      Ivar.fill_if_empty write_complete ());
     (* The Tcp module will close the file descriptor once this becomes
        determined. *)
     Deferred.all_unit [ Ivar.read read_complete; Ivar.read write_complete ]
@@ -225,17 +233,19 @@ module Make_client (Io : Gluten_async_intf.IO) = struct
   type 'a t =
     { connection : Client_connection.t
     ; socket : 'a socket
+    ; closed : unit Deferred.t
     }
 
   let create ~read_buffer_size ~protocol t socket =
     let connection = Client_connection.create ~protocol t in
-    don't_wait_for
-      (IO_loop.start
-         (module Client_connection)
-         connection
-         ~read_buffer_size
-         socket);
-    Deferred.return { connection; socket }
+    let closed =
+      IO_loop.start
+        (module Client_connection)
+        connection
+        ~read_buffer_size
+        socket
+    in
+    Deferred.return { connection; socket; closed }
 
   let upgrade t protocol =
     Client_connection.upgrade_protocol t.connection protocol
@@ -245,6 +255,7 @@ module Make_client (Io : Gluten_async_intf.IO) = struct
     Io.close t.socket
 
   let is_closed t = Client_connection.is_closed t.connection
+  let close_finished t = t.closed
 end
 
 module Client = struct
