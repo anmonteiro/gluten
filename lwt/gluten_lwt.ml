@@ -87,6 +87,12 @@ module IO_loop = struct
       Lwt.async (fun () ->
         Lwt.catch read_loop_step (fun exn ->
           Runtime.report_exn t exn;
+          (* If the read loop terminates by raising rather than reaching the
+             [`Close] branch, its exit promise would otherwise never resolve,
+             so [Lwt.join] below would hang and [Io.close socket] would never
+             run, leaking the file descriptor. Resolve it here too. *)
+          if Lwt.is_sleeping read_loop_exited then
+            Lwt.wakeup_later notify_read_loop_exited ();
           Lwt.return_unit))
     in
     let writev = Io.writev socket in
@@ -108,6 +114,12 @@ module IO_loop = struct
       Lwt.async (fun () ->
         Lwt.catch write_loop_step (fun exn ->
           Runtime.report_exn t exn;
+          (* Likewise, ensure the write loop's exit promise resolves on an
+             exception (e.g. ECONNRESET when writing to a peer that has gone
+             away mid-stream), so that [Io.close socket] runs and the socket
+             is not leaked. *)
+          if Lwt.is_sleeping write_loop_exited then
+            Lwt.wakeup_later notify_write_loop_exited ();
           Lwt.return_unit))
     in
     read_loop ();

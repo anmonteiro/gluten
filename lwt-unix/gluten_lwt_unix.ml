@@ -42,10 +42,13 @@ module Io :
     match Lwt_unix.state socket with
     | Closed -> Lwt.return_unit
     | _ ->
+      (* [shutdown] raises (e.g. ENOTCONN) when the peer has already reset the
+         connection. That must not prevent the [close] below: otherwise the
+         file descriptor is never closed and leaks. Do the shutdown on a
+         best-effort basis, then always close. *)
+      (try Lwt_unix.shutdown socket SHUTDOWN_ALL with _ -> ());
       Lwt.catch
-        (fun () ->
-           Lwt_unix.shutdown socket SHUTDOWN_ALL;
-           Lwt_unix.close socket)
+        (fun () -> Lwt_unix.close socket)
         (fun _exn -> Lwt.return_unit)
 
   let read socket bigstring ~off ~len =

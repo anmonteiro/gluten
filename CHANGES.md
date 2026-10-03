@@ -1,3 +1,10 @@
+Unreleased
+--------------
+
+- gluten-lwt, gluten-lwt-unix: don't leak the socket fd when the peer has
+  reset the connection
+  ([#90](https://github.com/anmonteiro/gluten/pull/90))
+
 0.5.2 2024-09-04
 --------------
 
