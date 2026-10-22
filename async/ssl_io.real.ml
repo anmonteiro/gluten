@@ -92,6 +92,19 @@ let reader_writer_of_sock
   ( Reader.create ?buf_len:reader_buffer_size fd
   , Writer.create ?buffer_age_limit ?buf_len:writer_buffer_size fd )
 
+(* async_ssl gives [hostname] to SNI only, and its default [Verify_peer]
+   checks the chain, not that the certificate names the host: any publicly
+   trusted certificate for any domain would do. Checked before the connection
+   is handed back, so nothing is sent on one that fails. A client with no
+   [hostname] has nothing to check against and is refused. *)
+let verify_host connection = function
+  | None ->
+    Or_error.error_string
+      "TLS client without a hostname cannot verify the server certificate"
+  | Some host ->
+    Ssl.Connection.check_peer_certificate_host connection host
+    |> Or_error.tag ~tag:(Printf.sprintf "TLS certificate is not valid for %s" host)
+
 let connect ?hostname ?alpn_protocols r w =
   let net_to_ssl = Reader.pipe r in
   let ssl_to_net = Writer.pipe w in
@@ -106,7 +119,14 @@ let connect ?hostname ?alpn_protocols r w =
     ~ssl_to_net
     ()
   |> Deferred.Or_error.ok_exn
-  >>= fun _connection ->
+  >>= fun connection ->
+  (match verify_host connection hostname with
+   | Ok () -> ()
+   | Error e ->
+     Ssl.Connection.close connection;
+     don't_wait_for (Reader.close r);
+     don't_wait_for (Writer.close w);
+     Error.raise e);
   Reader.of_pipe (Info.of_string "httpaf_async_ssl_reader") app_rd
   >>= fun app_reader ->
   Writer.of_pipe (Info.of_string "httpaf_async_ssl_writer") app_wr
