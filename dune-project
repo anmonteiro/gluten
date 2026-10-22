@@ -34,48 +34,6 @@
    (>= "0.7.3"))))
 
 (package
- (name gluten-lwt)
- (synopsis "Lwt-specific runtime for gluten")
- (depends
-  (ocaml
-   (>= "4.08.0"))
-  (gluten
-   (= :version))
-  (lwt
-   (>= "5.1.1"))))
-
-(package
- (name gluten-lwt-unix)
- (synopsis "Lwt + Unix support for gluten")
- (depends
-  (ocaml
-   (>= "4.08.0"))
-  (gluten-lwt
-   (= :version))
-  (faraday-lwt-unix
-   (>= "0.7.3")))
- (depopts
-  (lwt_ssl
-   (>= "1.2.0"))
-  (tls-lwt
-   (>= "1.0.0"))))
-
-(package
- (name gluten-mirage)
- (synopsis "Mirage support for gluten")
- (depends
-  (ocaml
-   (>= "4.08.0"))
-  (gluten-lwt
-   (= :version))
-  (faraday-lwt
-   (>= "0.7.3"))
-  (conduit-mirage
-   (>= "2.0.2"))
-  (mirage-flow
-   (>= "3.0.0"))))
-
-(package
  (name gluten-async)
  (synopsis "Async support for gluten")
  (depends
@@ -93,14 +51,3 @@
   async_ssl
   (tls-async
    (>= "1.0.0"))))
-
-(package
- (name gluten-eio)
- (synopsis "EIO runtime for gluten")
- (depends
-  (ocaml
-   (>= "4.08.0"))
-  (gluten
-   (= :version))
-  (eio
-   (>= 0.12))))

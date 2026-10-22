@@ -82,4 +82,5 @@ module type Client = sig
   val upgrade : _ t -> Gluten.impl -> unit
   val shutdown : _ t -> unit Deferred.t
   val is_closed : _ t -> bool
+  val close_finished : _ t -> unit Deferred.t
 end

@@ -37,14 +37,10 @@ open Async
 module Buffer = Gluten.Buffer
 
 module Make_IO_Loop (Io : Gluten_async_intf.IO) = struct
-  type 'a fd = 'a Io.socket
-
   let read socket read_buffer =
     let ivar = Ivar.create () in
-    Buffer.put
-      ~f:(fun buf ~off ~len k -> Async.upon (Io.read socket buf ~off ~len) k)
-      read_buffer
-      (fun n -> (Ivar.fill [@ocaml.alert "-deprecated"]) ivar n);
+    let readf buf ~off ~len k = Io.read socket buf ~off ~len >>> k in
+    Buffer.put ~f:readf read_buffer (Ivar.fill ivar);
     Ivar.read ivar
 
   let start :
@@ -52,38 +48,37 @@ module Make_IO_Loop (Io : Gluten_async_intf.IO) = struct
       (module Gluten.RUNTIME with type t = t)
       -> t
       -> read_buffer_size:int
-      -> 'a fd
+      -> read_complete:unit Ivar.t
+      -> write_complete:unit Ivar.t
+      -> 'a Io.socket
       -> unit Deferred.t
     =
-   fun (module Runtime) t ~read_buffer_size socket ->
+   fun (module Runtime)
+     t
+     ~read_buffer_size
+     ~read_complete
+     ~write_complete
+     socket ->
     let read_buffer = Buffer.create read_buffer_size in
-    let read_complete = Ivar.create () in
     let rec reader_thread () =
-      let rec reader_thread_step () =
-        match Runtime.next_read_operation t with
-        | `Read ->
-          Monitor.try_with (fun () -> read socket read_buffer) >>= ( function
-          | Ok _n ->
-            Buffer.get read_buffer ~f:(fun bigstring ~off ~len ->
-              Runtime.read t bigstring ~off ~len)
-            |> ignore;
-            reader_thread_step ()
-          | Error End_of_file ->
-            let (_ : int) = Buffer.get read_buffer ~f:(Runtime.read_eof t) in
-            reader_thread_step ()
-          | Error exn -> raise exn )
-        | `Yield ->
-          Runtime.yield_reader t reader_thread;
-          Deferred.return ()
-        | `Close ->
-          (Ivar.fill [@ocaml.alert "-deprecated"]) read_complete ();
-          Io.shutdown_receive socket;
-          Deferred.return ()
-      in
-      Deferred.don't_wait_for (reader_thread_step ())
+      match Runtime.next_read_operation t with
+      | `Read ->
+        read socket read_buffer >>> ( function
+        | 0 ->
+          (* End of file, error, nothing can be read, exiting. *)
+          let (_ : int) = Buffer.get read_buffer ~f:(Runtime.read_eof t) in
+          Ivar.fill_if_empty read_complete ();
+          Ivar.fill_if_empty write_complete ()
+        | _n ->
+          let _n = Buffer.get read_buffer ~f:(Runtime.read t) in
+          reader_thread () )
+      | `Yield -> Runtime.yield_reader t reader_thread
+      | `Close ->
+        (* Needed ?*)
+        Ivar.fill_if_empty read_complete ();
+        Io.shutdown_receive socket
     in
     let writev = Io.writev socket in
-    let write_complete = Ivar.create () in
     let rec writer_thread () =
       match Runtime.next_write_operation t with
       | `Write iovecs ->
@@ -91,13 +86,19 @@ module Make_IO_Loop (Io : Gluten_async_intf.IO) = struct
         Runtime.report_write_result t result;
         writer_thread ()
       | `Yield -> Runtime.yield_writer t writer_thread
-      | `Close _ -> (Ivar.fill [@ocaml.alert "-deprecated"]) write_complete ()
+      | `Close _ -> Ivar.fill_if_empty write_complete ()
     in
-    let conn_monitor = Monitor.create () in
-    Scheduler.within ~monitor:conn_monitor reader_thread;
-    Scheduler.within ~monitor:conn_monitor writer_thread;
-    Monitor.detach_and_iter_errors conn_monitor ~f:(fun exn ->
-      Runtime.report_exn t exn);
+    let monitor = Monitor.create () in
+    Scheduler.within ~monitor reader_thread;
+    Scheduler.within ~monitor writer_thread;
+    Monitor.detach_and_iter_errors monitor ~f:(fun exn ->
+      (* [report_exn] may wake up the reader or writer (e.g. to flush a GOAWAY),
+         whose I/O can raise again (EPIPE): keep them under [monitor] instead
+         of the monitor that is iterating over its errors. *)
+      Scheduler.within ~monitor (fun () -> Runtime.report_exn t exn);
+      (* Kill the connection when either reader or writer encounter an error. *)
+      Ivar.fill_if_empty read_complete ();
+      Ivar.fill_if_empty write_complete ());
     (* The Tcp module will close the file descriptor once this becomes
        determined. *)
     Deferred.all_unit [ Ivar.read read_complete; Ivar.read write_complete ]
@@ -117,7 +118,15 @@ module Make_server (Io : Gluten_async_intf.IO) = struct
       socket
     =
     let connection = Gluten.Server.create ~protocol connection in
-    IO_loop.start (module Gluten.Server) connection ~read_buffer_size socket
+    let read_complete = Ivar.create () in
+    let write_complete = Ivar.create () in
+    IO_loop.start
+      (module Gluten.Server)
+      connection
+      ~read_buffer_size
+      ~read_complete
+      ~write_complete
+      socket
 
   let create_upgradable_connection_handler
       ~read_buffer_size
@@ -133,31 +142,35 @@ module Make_server (Io : Gluten_async_intf.IO) = struct
         ~create:create_protocol
         (request_handler client_addr)
     in
-    IO_loop.start (module Gluten.Server) connection ~read_buffer_size socket
+    (* TODO: expose this somewhere? *)
+    let read_complete = Ivar.create () in
+    let write_complete = Ivar.create () in
+    IO_loop.start
+      (module Gluten.Server)
+      connection
+      ~read_buffer_size
+      socket
+      ~read_complete
+      ~write_complete
 end
 
-module Unix_io :
-  Gluten_async_intf.IO
-  with type 'a socket = ([ `Active ], ([< Socket.Address.t ] as 'a)) Socket.t =
-struct
+module Unix_io = struct
   type 'a socket = ([ `Active ], ([< Socket.Address.t ] as 'a)) Socket.t
 
   let read socket bigstring ~off ~len =
     let fd = Socket.fd socket in
-    let badfd fd = failwithf "read got back fd: %s" (Fd.to_string fd) () in
-    let rec finish fd buffer result =
-      let open Unix.Error in
-      match result with
-      | `Already_closed | `Ok 0 -> raise End_of_file
+    let badfd fd = failwithf "read got bad fd: %s" (Fd.to_string fd) () in
+    let rec finish fd buffer = function
+      | `Already_closed -> return 0
       | `Ok n -> return n
       | `Error (Unix.Unix_error ((EWOULDBLOCK | EAGAIN), _, _)) ->
         Fd.ready_to fd `Read >>= ( function
         | `Bad_fd -> badfd fd
-        | `Closed -> raise End_of_file
+        | `Closed -> return 0
         | `Ready -> go fd buffer )
       | `Error (Unix.Unix_error (EBADF, _, _)) -> badfd fd
       | `Error exn ->
-        Deferred.don't_wait_for (Fd.close fd);
+        don't_wait_for (Fd.close fd);
         raise exn
     and go fd buffer =
       if Fd.supports_nonblock fd
@@ -176,7 +189,7 @@ struct
       else
         Fd.syscall_in_thread fd ~name:"read" (fun file_descr ->
           Bigstring_unix.read file_descr bigstring ~pos:off ~len)
-        >>= fun result -> finish fd buffer result
+        >>= finish fd buffer
     in
     go fd bigstring
 
@@ -186,13 +199,7 @@ struct
     let fd = Socket.fd socket in
     if not (Fd.is_closed fd) then Socket.shutdown socket `Receive
 
-  let close socket =
-    let fd = Socket.fd socket in
-    if not (Fd.is_closed fd)
-    then (
-      Socket.shutdown socket `Both;
-      Fd.close fd)
-    else Deferred.unit
+  let close socket = Fd.close (Socket.fd socket)
 end
 
 module Server = struct
@@ -225,17 +232,22 @@ module Make_client (Io : Gluten_async_intf.IO) = struct
   type 'a t =
     { connection : Client_connection.t
     ; socket : 'a socket
+    ; closed : unit Deferred.t
     }
 
   let create ~read_buffer_size ~protocol t socket =
     let connection = Client_connection.create ~protocol t in
+    let read_complete = Ivar.create () in
+    let write_complete = Ivar.create () in
     don't_wait_for
       (IO_loop.start
          (module Client_connection)
          connection
          ~read_buffer_size
+         ~read_complete
+         ~write_complete
          socket);
-    Deferred.return { connection; socket }
+    return { connection; socket; closed = Ivar.read read_complete }
 
   let upgrade t protocol =
     Client_connection.upgrade_protocol t.connection protocol
@@ -245,6 +257,7 @@ module Make_client (Io : Gluten_async_intf.IO) = struct
     Io.close t.socket
 
   let is_closed t = Client_connection.is_closed t.connection
+  let close_finished t = t.closed
 end
 
 module Client = struct
@@ -253,8 +266,8 @@ module Client = struct
   module SSL = struct
     include Make_client (Ssl_io.Io)
 
-    let create_default ?alpn_protocols socket =
-      Ssl_io.make_default_client ?alpn_protocols socket
+    let create_default ?hostname ?alpn_protocols socket =
+      Ssl_io.make_default_client ?hostname ?alpn_protocols socket
   end
 
   module TLS = struct
